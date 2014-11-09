@@ -23,7 +23,7 @@
 
 \makeindex
 
-\include{frontmatter/preamble} %place custom commands and macros here
+\include{preamble} %place custom commands and macros here
 
 \begin{document}
 
@@ -33,15 +33,15 @@
 \author{David J. Marchette and Elizabeth L. Hohman}
 \maketitle
 
-\include{frontmatter/dedication}
+\include{dedication}
 \cleardoublepage
 \setcounter{page}{7} %previous pages will be reserved for frontmatter to be added in later.
 \tableofcontents
-%\include{frontmatter/foreword}
-\include{frontmatter/preface}
+%\include{foreword}
+\include{preface}
 \listoffigures
 \listoftables
-\include{frontmatter/symbollist}
+\include{symbollist}
 
 \mainmatter
 
