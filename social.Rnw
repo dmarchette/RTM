@@ -1,0 +1,8 @@
+\section{Twitter}
+\subsection{Spelling Variants}
+\subsection{bi-grams or phrases (how to extract more from less)}
+\section{Blogs}
+\section{News Comments}
+\section{Amazon Reviews}
+\section{Other Social Media?}
+\section{Maps}

@@ -1,0 +1,274 @@
+\section{Unsupervised (Clustering)}
+Unsupervised machine learning, or clustering, is performed on
+data to determine the natural groups within the data. We have seen
+this in Chapter \ref{chapt:stats}, but we will investigate it
+in more depth in this chapter.
+
+Of course, in order to decide how many groups there are, and which
+observations go in which group, we have to decide what we mean by ``group''.
+Informally, a group is a set of observations that are closer to each other
+than they are to other groups, but this leaves a lot of leeway.
+Figure \ref{fig:2clusts} illustrates two very different ideas of what
+one might mean by clusters. In the top plot it is clear to our eye that
+the data is naturally considered to lie on two non-overlapping spirals.
+In the bottom plot the data appear to be from two eliptical groups.
+Further, unlike the top plot, one might want to allow for a ``fuzzy''
+or probabilistic clustering -- in the overlap of the two ellipses points
+may be assigned to either cluster, and it might make sense to give the
+assignment a weight (or probability) indicating the confidence that the
+point is in each of the groups.
+
+Note that our eye has no trouble completing the curves of the spirals,
+rather than thinking of each contiguous segment of data as a different
+group. In the case of the elliptical groups, looking at the picture
+too long can cause one to start seeing internal structure (particularly
+for the larger, spherical group) and to start wondering about outliers --
+can you see what appear to be near-linear groups around the edges of the
+left cluster? Are there subgroups inside the left cluster? 
+These data were generated from two normal distributions, so these
+apparent groups are simply random noise, not truly indicative of extra
+structure in the data. Our eyes and brains have been optimized for
+finding patterns and we are really good at it, even when the patterns
+are meaningless, as they are in this case.
+
+\begin{figure}
+\centering
+<<clusterex,echo=FALSE,results='hide',fig.height=3.75,fig.width=3.75>>=
+set.seed(5632)
+theta1 <- sort(runif(1000,0,6*pi))
+r1 <- seq(.25,3,length=1000)
+X1 <- cbind(r1*cos(theta1),r1*sin(theta1))
+theta2 <- sort(runif(1000,pi/2,7*pi))
+r2 <- seq(.15,3,length=1000)
+X2 <- cbind(r2*cos(theta2),r2*sin(theta2))
+X3 <- matrix(rnorm(2000),ncol=2)
+X4 <- cbind(rnorm(1000,3,1),rnorm(1000,0,.4))
+plot(X1,pch=20,xlim=range(c(X1,X2)),ylim=range(c(X1,X2)),
+     xlab=expression(x[1]),ylab=expression(x[2]),cex=0.5)
+points(X2,pch=20,cex=0.5)
+plot(X3,pch=20,xlim=range(c(X3[,1],X4[,1])),ylim=range(c(X3[,2],X4[,2])),
+     xlab=expression(x[1]),ylab=expression(x[2]),cex=0.5)
+points(X4,pch=20,cex=0.5)
+@
+\caption{\label{fig:2clusts}
+Examples of two different types of clusters.
+}
+\end{figure}
+
+Clearly, the two different cluster structures require different clustering
+techniques, and what this comes down to is a different definition of what
+one means by the cluster definition:
+{\it points that are closer to each other than to points in other groups}.
+Hierarchical (agglomerative) clustering starts with one cluster per point,
+finds the two closest groups and merges them, and repeats until
+ultimately every point is in a single group. 
+
+\subsection{Hierarchical clustering on the distance matrix}
+
+If the definition
+of distance between groups is:
+\begin{equation}\label{eqn:singlelinkage}
+d(g_1,g_2) = \min\limits_{x\in g_1, y\in g_2}  d(x,y),
+\end{equation}
+(which is called ``single linkage'') then the spirals in Figure
+\ref{fig:2clusts} will be disovered as the two penultimate groups.
+Other methods such as ``complete linkage'', where the $\min$ 
+in Equation (\ref{eqn:singlelinkage}) is replaced
+by $\max$, or where the distance is the distance between the centroids
+of the groups,
+or various other distances will result in other definitions of groups
+(such as ``roughly spherical'', for example).
+
+We have seen hierarchical clustering before, for example in Figures
+\ref{fig:qfmodelAIC1heat},
+\ref{fig:qfmodel1hclust} and
+\ref{fig:shakespeareD4hclust}. Hierarchical clustering requires
+two inputs: the inter-point distance matrix and the method of 
+comparing groups. Note that while we will continue to refer to the 
+former as a ``distance'', all we really require is that it be a 
+dissimilarity.
+
+Let's return to the Shakespeare works. We have looked at this before
+in Chapter \ref{chapt:stats}, but now we'll see what the consequences
+are for various dissimilarities and clustering methods.
+
+First we compute several different distances. We have seen Hellinger
+and Cosine, and we'll add Euclidean and a number of others available
+in the \texttt{proxy} package.
+
+First consider the Bhjattacharyya distance:
+\begin{equation}
+d_B(x,y) = \sqrt{\sum\limits_i(\sqrt{x_i}-\sqrt{y_i})^2}
+\end{equation}
+
+<<hclustB,cache=TRUE,echo=FALSE,return='hide',dependson='shakespeareTM'>>=
+DB <- dissimilarity(dtmS.TfIdf,method='Bhjattacharyya')
+DC <- dissimilarity(dtmS.TfIdf,method='Canberra')
+Dc <- dissimilarity(dtmS.TfIdf,method='cosine')
+Dd <- dissimilarity(dtmS.TfIdf,method='divergence')
+DE <- dissimilarity(dtmS.TfIdf,method='Euclidean')
+DH <- dissimilarity(dtmS.TfIdf,method='Hellinger')
+DM <- dissimilarity(dtmS.TfIdf,method='Manhattan')
+Ds <- dissimilarity(dtmS.TfIdf,method='supremum')
+DS <- dissimilarity(dtmS.TfIdf,method='Soergel')
+DW <- dissimilarity(dtmS.TfIdf,method='Whittaker')
+@
+
+The Fowlkes-Mallows index (\cite{fowlkes:1983})
+can be used to assess whether two clusterings are similar.
+Suppose two clusterings are performed on $n$ observations, clustering
+the observations into $k$ clusters. Form the matrix $(m_{ij})$ to
+contain the table of the clusterings: $m_{ij}$ is the number of objects
+in both cluter $i$ of the first clustering and cluster $j$ of the second.
+The index $B_k$ for the two $k$-cluster clusterings is defined as:
+\begin{eqnarray}
+T_k &=& \sum\limits_{i=1}^{k}\sum\limits_{j=1}^k m_{ij}^2-n\\
+P_k &=& \sum\limits_{i=1}^{k}(\sum\limits_{j=1}^k m_{ij})^2-n\\
+Q_k &=& \sum\limits_{j=1}^{k}(\sum\limits_{i=1}^k m_{ij})^2-n\\
+B_k &=& \frac{T_k}{\sqrt{P_kQ_k}},
+\end{eqnarray}
+
+\begin{figure}
+<<hclustDistsshakefig1,echo=FALSE,return='hide',dependson='hclustDistsShake'>>=
+library(dendextend)
+stitles <- readLines("Data/shorttitles.txt")
+layout(rbind(c(1,1,2,2),
+             c(1,1,2,2),
+             c(0,3,3,0),
+             c(0,3,3,0)))
+h1 <- hclust(DB,method='complete')
+plot(h1,sub='',labels=stitles,
+     main='Complete Linkage',cex=0.75,xlab='')
+h2 <- hclust(DB,method='single')
+plot(h2,sub='',labels=stitles,
+     main='Single Linkage',cex=0.75,xlab='')
+Bk_plot(h1,h2)
+@
+\caption{\label{fig:BHCS}
+Comparison of the Complete Linkage and Single Linkage clustering method
+under the Bhatacharya dissimilarity.
+}
+\end{figure}
+
+\begin{figure}
+<<hclustDistsshakefig2,echo=FALSE,cache=TRUE,return='hide',dependson='hclustDistsShake'>>=
+library(dendextend)
+par(mfrow=c(4,3))
+hB <- hclust(DB,method='ward')
+hC <- hclust(DC,method='ward')
+Bk_plot(hB,hC,main="Bhjattacharyya vs Canberra",ylab=expression(B[k]))
+hH <- hclust(DH,method='ward')
+Bk_plot(hB,hH,main="Bhjattacharyya vs Hellinger",ylab=expression(B[k]))
+hc <- hclust(Dc,method='ward')
+Bk_plot(hc,hH,main="Cosine vs Hellinger",ylab=expression(B[k]))
+hE <- hclust(DE,method='ward')
+Bk_plot(hE,hH,main="Euclidean vs Hellinger",ylab=expression(B[k]))
+Bk_plot(hE,hc,main="Euclidean vs Cosine",ylab=expression(B[k]))
+hS <- hclust(DS,method='ward')
+hd <- hclust(Dd,method='ward')
+Bk_plot(hS,hd,main="Soergel vs Divergence",ylab=expression(B[k]))
+hM <- hclust(DM,method='ward')
+hs <- hclust(Ds,method='ward')
+Bk_plot(hM,hs,main="Manhatten vs Supremum",ylab=expression(B[k]))
+Bk_plot(hM,hE,main="Manhatten vs Euclidean",ylab=expression(B[k]))
+hW <- hclust(DW,method='ward')
+Bk_plot(hH,hW,main="Hellinger vs Whittaker",ylab=expression(B[k]))
+Bk_plot(hE,hW,main="Euclidean vs Whittaker",ylab=expression(B[k]))
+Bk_plot(hE,hS,main="Euclidean vs Soergel",ylab=expression(B[k]))
+Bk_plot(hE,hM,main="Euclidean vs Manhatten",ylab=expression(B[k]))
+@
+\caption{\label{fig:BkSeveral1}
+Comparison of several dissimilarities using the Ward method for clustering.
+}
+\end{figure}
+
+\begin{figure}
+<<hclustDistsshakefig3,echo=FALSE,cache=TRUE,return='hide',dependson='hclustDistsShake'>>=
+library(dendextend)
+par(mfrow=c(4,3))
+hBc <- hclust(DB,method='complete')
+hCc <- hclust(DC,method='complete')
+Bk_plot(hBc,hCc,main="Bhjattacharyya vs Canberra",ylab=expression(B[k]))
+hHc <- hclust(DH,method='complete')
+Bk_plot(hBc,hHc,main="Bhjattacharyya vs Hellinger",ylab=expression(B[k]))
+hcc <- hclust(Dc,method='complete')
+Bk_plot(hcc,hHc,main="Cosine vs Hellinger",ylab=expression(B[k]))
+hEc <- hclust(DE,method='complete')
+Bk_plot(hEc,hHc,main="Euclidean vs Hellinger",ylab=expression(B[k]))
+Bk_plot(hEc,hcc,main="Euclidean vs Cosine",ylab=expression(B[k]))
+hSc <- hclust(DS,method='complete')
+hdc <- hclust(Dd,method='complete')
+Bk_plot(hSc,hdc,main="Soergel vs Divergence",ylab=expression(B[k]))
+hMc <- hclust(DM,method='complete')
+hsc <- hclust(Ds,method='complete')
+Bk_plot(hMc,hsc,main="Manhatten vs Supremum",ylab=expression(B[k]))
+Bk_plot(hMc,hE,main="Manhatten vs Euclidean",ylab=expression(B[k]))
+hWc <- hclust(DW,method='complete')
+Bk_plot(hHc,hWc,main="Hellinger vs Whittaker",ylab=expression(B[k]))
+Bk_plot(hEc,hWc,main="Euclidean vs Whittaker",ylab=expression(B[k]))
+Bk_plot(hEc,hSc,main="Euclidean vs Soergel",ylab=expression(B[k]))
+Bk_plot(hEc,hMc,main="Euclidean vs Manhatten",ylab=expression(B[k]))
+@
+\caption{\label{fig:BkSeveral2}
+Comparison of several dissimilarities using the complete linkage
+method for clustering.
+}
+\end{figure}
+
+\begin{figure}
+<<hclustDistsshakefig4,echo=FALSE,return='hide',dependson='hclustDistsshakefig2'>>=
+stitles <- readLines("Data/shorttitles.txt")
+par(mfrow=c(2,2))
+plot(hB,sub='',labels=stitles,
+     main='Bhjattacharrya',cex=0.5,xlab='')
+plot(hc,sub='',labels=stitles,
+     main='Cosine',cex=0.5,xlab='')
+plot(hE,sub='',labels=stitles,
+     main='Euclidean',cex=0.5,xlab='')
+plot(hW,sub='',labels=stitles,
+     main='Whittaker',cex=0.5,xlab='')
+@
+\caption{\label{fig:BkSeveral3}
+Comparison of four dissimilarities using the Ward method for clustering.
+}
+\end{figure}
+
+\begin{figure}
+<<hclustDistsshakefig5,echo=FALSE,return='hide',dependson='hclustDistsshakefig3'>>=
+stitles <- readLines("Data/shorttitles.txt")
+par(mfrow=c(2,2))
+plot(hBc,sub='',labels=stitles,
+     main='Bhjattacharrya',cex=0.5,xlab='')
+plot(hcc,sub='',labels=stitles,
+     main='Cosine',cex=0.5,xlab='')
+plot(hEc,sub='',labels=stitles,
+     main='Euclidean',cex=0.5,xlab='')
+plot(hWc,sub='',labels=stitles,
+     main='Whittaker',cex=0.5,xlab='')
+@
+\caption{\label{fig:BkSeveral4}
+Comparison of four dissimilarities using the complete linkage
+method for clustering.
+}
+\end{figure}
+
+\subsection{Spherical K-Means}
+<<shakeskmeans,echo=TRUE,cache=TRUE,dependson='shakespeareTM'>>=
+library(skmeans)
+set.seed(23646)
+system.time(
+clust <- skmeans(dtmS.TfIdf,k=4,method='CLUTO')
+)
+titles[clust$cluster==1]
+titles[clust$cluster==2]
+titles[clust$cluster==3]
+titles[clust$cluster==4]
+@
+\section{Classification}
+\subsection{Discriminating and descriptive words}
+\subsection{Classifiers}
+\subsection{Combining Clustering and Classification}
+\section{ISPDT}
+\cite{priebe:2003}
+\section{Fusion}
+\index{fusion}

@@ -1,0 +1,530 @@
+\section{Encoding}
+
+In the ``old days'' a character was represented as an $8$-bit location in
+memory, and most programmers restricted themselves to the $7$-bit ASCII
+standard. By ``most programmers'' or course we mean ``most English speaking 
+programmers''. The problem is that many languages (Japanese, Chinese,
+Russian, Arabic, even most European languages) require characters beyond
+the ASCII standard. In fact, even English needs more than the alphabet (think
+about the pound or euro symbol). Unless you are confident that you will
+never come across a character that isn't on the standard American keyboard,
+you will eventually have to worry about other character encodings.
+
+There are many different encoding standards, the most common of which is
+probably UTF-8. You can convert between encodings using \texttt{iconv}
+and see the available encodings using \texttt{iconvlist}. On
+the machine this section was typed on, there are \Sexpr{length(iconvlist())}
+encodings available. Unfortunately, the names of the encodings, and which
+ones are available, can be platform dependent.
+
+The package \texttt{stringi} is designed to allow encoding and locality
+independent string processing. In this book we will be focused primarily
+on English language, standard ASCII documents, and we will leave it up
+to the reader to adapt the ideas to their locality and to other encodings
+using the \texttt{stringi} package or other methods.
+
+\section{Tokenization}
+Tokenization is the extraction of the ``words'' (tokens) from the document.
+To quote Wikipedia:\footnote{http://en.wikipedia.org/wiki/Tokenization,
+obtained 08/16/2013.}
+
+``Tokenization is the process of breaking a stream of text up into words, 
+phrases, symbols, or other meaningful elements called tokens.''
+
+This requires knowledge of the language of the document, how white space
+and punctuation is represented, and what the word boundary indicators are
+for the language, basically, what the
+``meaningful elements'' of the language are. 
+It is fairly simple 
+and straight forward to tokenize in English and most European languages,
+although there are still some things to think about that might be domain
+or problem
+specific.
+
+The simplest tokenizer (and the default in the tm package) is
+to simply use \texttt{scan}. This will read the document into a vector,
+splitting the words on whitespace (as defined by your locality).
+
+Here are two solutions to the tokenization problem:
+
+<<setoptsT1,hide=TRUE,echo=FALSE>>=
+w <- options("width")
+options(width=60)
+@
+<<token1>>=
+str1 <- "Dad, come quick!"
+str2 <- "The dog ate the balloon!"
+str3 <- "I think she might be sick."
+str <- paste(str1,str2,str3)
+scan(text=str,what="character",quote="",quiet=TRUE)
+strsplit(str,split="\\W")
+@
+<<unsetoptsT1,hide=TRUE,echo=FALSE>>=
+options(width=w$width)
+@
+
+The first splits out the tokens as the whitespace separated characters,
+and hence retains the punctuation marks. This is in fact the default
+tokenizer \texttt{scan\_tokenizer} of the tm package.
+The second splits out the tokens
+according to word boundaries. Note the empty strings corresponding to the
+interior
+punctuation marks. If punctuation marks are to be removed subsequent to
+the tokenization, the second approach might appear to be preferable. However,
+there might be cases where it might be desirable to treat
+certain punctuation specially.
+
+We can define a tokenizer using the second approach:
+
+<<wtoken>>=
+W_tokenizer <- function(x){
+   out <- unlist(strsplit(str,split="\\W"))
+	out[nchar(out)>0]
+}
+@
+
+<<token2>>=
+str1 <- "Write me @ george@washington.com" 
+str2 <- "or visit http://washington.com."
+str3 <- "I'll re-evaluate :-)"
+str <- paste(str1,str2,str3,sep=", ")
+scan(text=str,what="character",quote="",quiet=TRUE)
+W_tokenizer(str)
+@
+
+One might very well want English contractions such as ``I'll'' to be
+a single token, and to keep hyphenated words together (or to collapse them
+by replacing the hyphen with the null string). Also, special strings such
+as email addresses, URLs, dates, emoticons, and so on should be retained
+in their original form for further processing. It is generally a good idea
+to have the tokenizer do the minimum possible work -- one can always do further
+splitting of the tokens through later processing if desired.
+
+Tokenization is relatively straight forward in English, but can be tricky
+in other languages. In particular, Chinese is a challenge because it lacks
+spaces between words in its written form. This has generated quite a bit
+of work. See \cite{bakeoff1,bakeoff2,lingpipe}.
+
+\section{Bigrams, ngrams}
+\section{Stop words}
+\section{Regular Expression}
+There are two types of regular expression parsing implemented in R:
+extended regular expressions and Perl-like regular expressions.
+
+\subsection{Extended Regular Expressions}
+Regular expression parsing is implemented in R and described in the
+\texttt{regexp} help pages. This allows for searching and replacing
+text using regular expressions. Consider the following simple example.
+The R function \texttt{grep} returns the indices of the second argument
+which contain the string in the first argument.
+
+<<regexp1>>=
+grep("a.c",c("abc","aec","ace","abcd","abbc"))
+@
+
+We use regular expressions like this for two purposes. Searching for strings
+as above, and replacing strings in text.
+
+<<regexp2>>=
+gsub("y+","y","happyy birthdayyyyy to yyyyyou!")
+@
+
+The main tools in R for searching and replacing strings are
+\texttt{grep} and \texttt{gregexpr} for searching,
+\texttt{gsub} for replacing and 
+\texttt{strsplit} for splitting strings. These use a regular expression for
+matching and return either the strings which match, or the strings with the
+matches replaced by the replacement value, or, in the case of
+\texttt{strsplit}, a list containing the strings split on the matching
+expression.
+
+Other functions less commonly used in programs that use regular expressions
+are the help- and environment-related functions \texttt{apropos},
+\texttt{browseEnv}, \texttt{ls}, etc. The function \texttt{list.files},
+which may be used in progams more often than the above,
+also implements regular expression parsing.
+
+Regular expressions allow one to specify a set of characters, such as all
+alpha-numeric characters, or punctuation, wild cards for one or more
+characters, and various ways of specifying patterns of characters.
+Table \ref{table:characters} gives a list of the built-in classes of characters
+that can be used in the regular expressions.
+The interpretations depend on locale, which is a description of
+the language and character encoding for the language. For example,
+the expression `{\leftB}0-9A-Za-z\rightB' is equivalent to\footnote{Note the
+dual brackets -- the interior ones corresponding to the class.}
+`\leftB\leftB:alnum:\rightB\rightB' 
+in the US (locale ``C''), but may not be the same in other locales.
+It is generally best to use the predefined classes, unless there is compelling
+reason not to.
+
+\begin{table}
+\centering
+\caption{\label{table:characters}
+Predefined character sets in R's regular expression parsing functionality.
+}
+\begin{tabular}{|l|p{3in}|}
+\hline
+Class&Interpretation\\
+\hline
+{\leftB}:alpha:\rightB&Alphabetic -- letters\\
+{\leftB}:digit:\rightB&Numbers\\
+{\leftB}:xdigit:\rightB&Hexadecimal digits\\
+{\leftB}:alnum:\rightB&Alphanumeric -- letters and numbers\\
+{\leftB}:cntrl:\rightB&Control characters\\
+{\leftB}:punct:\rightB&Punctuation\\
+{\leftB}:graph:\rightB&Punctuation and alphanumeric\\
+{\leftB}:blank:\rightB&Space and tab (non-breaking space)\\
+{\leftB}:space:\rightB&Space, tab, newline, and similar characters\\
+{\leftB}:print:\rightB&Printing characters -- alphanumeric, punctuation and space\\
+{\leftB}:upper:\rightB&Uppercase letters\\
+{\leftB}:lower:\rightB&Lowercase letters\\
+\hline
+\end{tabular}
+\end{table}
+
+There is no reason (beyond readability) that regular expressions couldn't be
+as long as one wished, however the POSIX standard only requires up to
+256 bytes, so one is strongly encouraged to use shorter
+expressions to avoid coming up against this
+limit (and writing code that nobody could ever maintain).
+
+In addition to the character sets above, there are single character short
+cuts for some of these, and some specific cases. Table \ref{table:short}
+lists these.
+
+\begin{table}
+\centering
+\caption{\label{table:short}Short-cuts and expressions for various
+character classes and types in regular expressions.
+}
+\begin{tabular}{|lp{3in}|}
+\hline
+\verb|\^|&matches the beginning of the string.\\
+\verb|\$|&matches the end of the string.\\
+\verb|\<|&matches the empty string at the beginning of a word.\\
+\verb|\>|&matches the empty string at the end of a word.\\
+\verb|\b|&matches the empty string at the edge of a word.\\
+\verb|\B|&matches the empty string so long as it is not at the edge of a word.\\
+\verb|\d|&matches any digit.\\
+\verb|\D|&its negation -- any non-digit.\\
+\verb|\s|&matches any space.\\
+\verb|\S|&its negation.\\
+\verb|\w|&matches any word character
+(same as {\leftB}:alnum:{\rbrack}$\_$\rbrack).\\
+\verb|\W|&its negation.\\
+\hline
+\end{tabular}
+\end{table}
+
+<<short>>=
+str <- "this 1 test"
+gregexpr("\\<[[:alpha:]]+\\>",str)
+gregexpr("\\<\\w+\\>",str)
+strsplit(str,split="\\W")[[1]]
+strsplit(str,split="\\s")[[1]]
+gregexpr("\\d",str)
+gregexpr("\\D",str)
+@
+
+The metacharacters in the extended regular expression set are:
+\begin{verbatim}
+. \ | ( ) [ ] { } ^ $ * + ?
+\end{verbatim}
+
+Whether these have a special meaning depends on the context, as we will see
+in the examples below. To escape a metacharacter precede it with a 
+backslash (actually backslashes need to be doubled in most cases).
+
+We will illustrate the usage of regular expressions through examples in
+which we perform replacement using \texttt{gsub},
+or searching using \texttt{grep} and \texttt{regexpr/gregexpr}.
+Far more information
+is available through the help page for \texttt{regexp}
+and
+\cite{TRE}).
+
+<<digits>>=
+str <- "10/06/2012: I'm taking the 1:23 to Piccadilly on the 2nd"
+gsub("[[:digit:]]","",str)
+gsub("[^[:digit:]]","",str)
+gsub("^[[:digit:]]","",str)
+regexpr("\\^[[:digit:]]","",str)
+@
+
+The first expression replaces all instances that match `digit' with nothing.
+Note the use of the \verb'^' for negation in the second expression to indicate
+negation, and in the third to indicate the beginning of the line.
+The fourth is looking for a literal \verb'^', which is not found, 
+so a $-1$ is returned indicating this.
+
+We can use logical expressions for more complicated searches:
+
+<<digits2>>=
+str <- "It's 12:20 and I'm late."
+regexpr("([[:digit:]|[:punct:]])",str)
+gregexpr("([[:digit:]|[:punct:]])",str)
+@
+
+The \texttt{regexpr} function returns the first match, while
+\texttt{gregexpr} returns all matches. Both return the position and
+length of the match(es).
+
+We can extract the matches through the use of the \texttt{regmatches}
+function.
+
+<<digits3>>=
+str <- "It's 12:20 not 13:00"
+pattern <- "[[:digit:]]+"
+m <- gregexpr(pattern,str)
+regmatches(str,m)
+@
+
+Regular expressions make use of quantifiers to indicate repetition.
+Each of the following indicates the amount of repetition allowed for
+the preceding item (see the help page for \texttt{regexp} and
+\cite{TRE}):
+\begin{itemize}
+\item[`?'] the item is optional and will be matched at most once.
+\item[`*'] the item is optional but can be matched any number of times.
+\item[`+'] the item will be matched one or more times.
+\item[`\{n\}'] the item will be matched exactly `n' times.
+\item[`\{n,\}'] the item will be matched `n' or more times.
+\item[`\{n,m\}'] the item will be matched between `n' and `m' times.
+\end{itemize}
+
+The matching is greedy -- it matches the maximal number possible.
+Adding `?' to one of the repetition operators makes it minimal -- it
+matches the least possible.
+
+<<quant>>=
+str <- "the O2 is mixed with Na3OH6 to make a mess"
+gregexpr("[[:alpha:]]+[[:digit:]]",str)
+@
+
+For those of us who think in terms of wildcards rather than regular
+expressions, there is \texttt{glob2rx} which turns wildcard expressions
+into the corresponding regular expressions.
+
+<<glob>>=
+glob2rx("*.doc")
+glob2rx("*.t??")
+glob2rx("*.*",trim.tail=FALSE)
+glob2rx("*.*",trim.tail=TRUE,trim.head=TRUE)
+@
+
+Approximate matches are also possible.\label{page:approx}
+As an example, consider:
+
+<<approx,tidy=FALSE>>=
+strs <- c("boy, am i feeling sick",
+          "im sick",
+			 "i m sick",
+          "kelli mo sick dan me",
+          "i am vick",
+          "nobody sicks a dog on me")
+m <- regexpr("(i m sick){~, 1i+1d+1s<3}",strs)
+m
+regmatches(strs,m)
+@
+
+Here we are matching the string `i m sick', but allowing for 
+insertions (`i' with a cost of $1$), 
+deletions (`d' with a cost of $1$),
+and substitutions (`s' with a cost of $1$), so long as the total cost of
+these operations does not excede $2$. Important: the space after the first
+comma (within the `\{\}') {\bf must} be there. Note that all but the last
+string matches -- this last would require three changes: 
+'ody' $\rightarrow$ 'i m'. If we changed the $3$ to a $4$ they would all 
+match.
+
+We can further control the matches by specifying a maximum number of errors.
+For example, 
+
+<<approx2>>=
+regexpr("(i m sick){~2, 1i+1d+2s<4}",strs)
+@
+
+\noindent constrains the match to a maximum of $2$ errors -- 
+one substitution and one 
+insertion or deletion is fine, but three insertions/deletions is not. The 
+first match requires two substitutions (`n' $\rightarrow$ ` ' and 
+`g' $\rightarrow$ `m', for a total cost of $4$) 
+and so does not match this expression.
+
+Here is a substitution taken from the help page for \texttt{Sweave2knitr}:
+
+<<sw2k>>=
+gsub("[.]([^.]+)$", "-knitr.\\1","/x.z/y/boo.foo.Rnw")
+gsub("([.])([^.]+)$", "-knitr.\\2","/x.z/y/boo.foo.Rnw")
+@
+
+Note that the period is wrapped in brackets, making it literal rather than
+it's usual metacharacter meaning of ``match any character''.
+
+The regular expression makes two matches:
+\begin{enumerate}
+\item a period.
+\item anything not a period up to the end of the string.
+\end{enumerate}
+
+Thus to match the string must contain a period (to match the first character)
+{\bf and} must have a non-empty string containing no periods ending at
+the end of the string. In the first expression,
+the match (``Rnw'') is retained in the `\verb|\\1|' variable,
+so the replacement sticks a ``-knitr.'' in between the match and the stuff
+that came before.
+Essentially,
+this is the ``tail'' or extension of the filename.
+Note that the variables (such as `\verb|\\1|') contain the matches in the
+parenthesized subexpression, which is why the desired match is in
+`\verb|\\1|' in the first expression and in `\verb|\\2|' in the second.
+
+To further
+illustrate the power of regular expressions, we consider the following 
+problem: given a string in which some letters are repeated, replace all 
+instances of a single letter repeated $3$ or more times with the letter.
+We saw above that we can do this if we know the letter ahead of time, but
+clearly we don't want to write a loop over all $52$ letters (don't forget
+capitals), even if we are clever enough to use one of the \texttt{apply}
+functions. We want something of the form:
+
+\begin{verbatim}
+   gsub("[[:alpha:]]_3_times","theMatch",str).
+\end{verbatim}
+
+The syntax for specifying ``theMatch'' is to use the expression
+`\verb|\\1|':
+
+<<threeletters>>=
+str <- "haaaaappy birthdayyyyy to yyyyyouuuuu!"
+gsub("([[:alpha:]])\\1\\1+","\\1",str)
+@
+
+Here we search for a letter followed by two copies of the letter 
+(the `\verb|\\1|') and any
+number of further copies of the letter (indicated by the plus sign).
+We replace with the letter matched. Note that this can be very useful for
+unedited text such as found on microblogs (Twitter, for example), however it
+does have a downside that is simply unavoidable (without using linguistic
+information outside of the regular expression parsing):
+
+<<threelettersProb>>=
+str <- "I went tooo him tooo!"
+gsub("([[:alpha:]])\\1\\1+","\\1",str)
+@
+
+There's no way (that will work for
+all similar cases in English) to write a substitution using regular
+expressions that can tell that the `o' in the first `tooo' should be replaced 
+with one copy while that of the second should be replaced with two.
+
+The \verb|[:punct:]| class is particularly useful, since punctuation
+marks
+tend to be special characters in regular expressions, and we'd like to 
+be able to strip punctuation without having to enumerate all of them (and 
+escape the special characters):
+
+<<punct>>=
+gsub("[[:punct:]]","","don't cry for me, argentina!")
+@
+
+We can remove multiple spaces, and spaces at the beginning and ends
+of strings using the techniques we've discussed:
+
+<<spaces>>=
+str <- " a    lot    of space in  this    "
+str1 <- gsub("\\s+"," ",str)
+str1
+gsub("(^\\s+)|(\\s+$)","",str1)
+@
+
+In processing Twitter data, one often comes across hashtags made up of
+multiple words. One might want to split the hashtag into the component
+words for further processing. In the case where the words are indicated
+by capitalization, this can be done with regular expressions.
+
+<<hash1>>=
+ht1 <- "#IHateSchool"
+gsub("([[:upper:]][[:lower:]])"," \\1",ht1)
+ht2 <- "#DNARocksMyWorld"
+gsub("([[:upper:]][[:lower:]])"," \\1",ht2)
+gsub("([[:upper:]][[:lower:]]?)"," \\1",ht2)
+@
+
+Note that the last expression makes the lower case letter optional, thus
+splitting the acronym. Which you want to use
+will be determined by the application.
+
+\subsection{Perl-Like Regular Expressions}
+
+Perl-like regular expressions are used when the argument \texttt{perl=TRUE}
+is given to \texttt{grep}, \texttt{regexpr},
+\texttt{gregexpr}, 
+\texttt{sub}, 
+\texttt{gsub} and
+\texttt{strsplit}. Nearly all of the functionality of the extended regular
+expressions are the same (exceptions are the \verb'\<' and \verb'\>'). 
+The approximate
+matching discussed on Page \pageref{page:approx} is also not available in the
+perl-like mode.
+
+The \texttt{regexpr} and \texttt{gregexpr} support `named capture', allowing
+the user to name the matches and access the results by name.
+
+<<perlname>>=
+str <- "Try this. I think therefore I am."
+gregexpr("(?<cap>[A-Z])|(?<punc>[[:punct:]])",str,perl=TRUE)
+@
+
+For more information, see \cite{PCRE}, the help page for \texttt{regexp}
+or, on Unix machines, the man pages for pcrepattern and pcreapi.
+
+\section{Stemming}
+\section{Basic Text Cleaning}
+
+One rarely wants to process text without some form of cleaning. Although
+there are always exceptions to any rule, one generally wants to do at least most of:
+\begin{itemize}
+\item Map uppercase to lowercase.
+\item Remove punctuation.
+\item Remove digits.
+\item Stem.
+\item Remove stop words.
+\item Remove small words.
+\item Remove rare words.
+\end{itemize}
+
+Case mapping can be performed using \texttt{tolower()} or \texttt{toupper()}:
+<<case>>=
+str <- "Try this. I think therefore I am."
+tolower(str)
+toupper(str)
+@
+We have seen above how to remove punctuation and digits, and some ways to 
+stem words. Stop words are words which are assumed to have no useful content
+in the context of the text analysis application. Typically these are words like
+``a'', ``the'', ``of'' and so on, but they may also be dependent on the domain.
+For example, in a collection of journal papers, the words ``abstract'', ``introduction'',
+``methods'', ``results'' and similar words may be considered to be stop words.
+
+Sometimes one removes all words of length $k$ or less
+(usually $k=2$ or $3$
+in most of the work we have seen). This eliminates single characters and  
+words like ``is'', ``of'', ``am'', etc. without having to explicitly enumerate
+them in a stop word list. Sometimes very long words are also 
+removed,\footnote{This is one way to remove long URLs from the document prior
+to removing punctuation, but if URLs are the problem there are better ways to remove them.}
+although this
+is less common. If one as a vector \texttt{words} of the words in a document, one
+can remove small words with code like:
+<<smallwords>>=
+words <- unlist(strsplit("try this i think therefore i am",split='\\W'))
+words[nchar(words)>3]
+@
+
+Removing rare words is a bit trickier, since there are two possible meanings for ``rare''.
+One could remove words from a document if they occur fewer than $k$ times, or one could
+remove words from the corpus if they occur in fewer than $\ell$ documents. Both of these
+are implemented in the \texttt{tm} package, which we will discuss in the next chapter.
+

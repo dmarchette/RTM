@@ -1,0 +1,82 @@
+\documentclass[krantz1]{krantz} %See documentation for other class options
+\usepackage{fixltx2e,fix-cm}
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{subfigure}
+\usepackage{makeidx}
+\usepackage{multicol}
+%% Our packages
+\usepackage{amsthm}
+\usepackage{url}
+\usepackage[mathscr]{eucal}
+\usepackage{enumerate}
+%\usepackage{longtable}
+\usepackage{pgf}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{exercise}
+
+
+\frenchspacing
+\tolerance=5000
+
+\makeindex
+
+\include{frontmatter/preamble} %place custom commands and macros here
+
+\begin{document}
+
+\frontmatter
+
+\title{Text Data Mining in R}
+\author{David J. Marchette and Elizabeth L. Hohman}
+\maketitle
+
+\include{frontmatter/dedication}
+\cleardoublepage
+\setcounter{page}{7} %previous pages will be reserved for frontmatter to be added in later.
+\tableofcontents
+%\include{frontmatter/foreword}
+\include{frontmatter/preface}
+\listoffigures
+\listoftables
+\include{frontmatter/symbollist}
+
+\mainmatter
+
+\chapter{Introduction}\label{chapt:intro}
+\include{intro}
+
+\chapter{Optaining Open Source Corpora}\label{chapt:obtain}
+\include{obtain}
+
+\chapter{Cleaning and Representation}\label{chapt:clean}
+\include{clean}
+
+\chapter{Basic Statistics}\label{chapt:basic}
+\include{basic}
+
+\chapter{Statistical Text Processing Fundamentals}\label{chapt:stats}
+\include{stats}
+
+\chapter{Text Classification}\label{chapt:class}
+\include{class}
+
+\chapter{Natural Language Processing}\label{chapt:nlp}
+\include{nlp}
+
+\chapter{Meta Data}\label{chapt:meta}
+\include{meta}
+
+\chapter{Social Media}\label{chapt:social}
+\include{social}
+
+%% End Matter
+
+\bibliographystyle{plain}
+\bibliography{references}
+
+\printindex
+
+\end{document}

@@ -1,0 +1,247 @@
+\section{Vector space model}
+
+A vector space representation of a corpus of documents calculates a vector
+of numbers for each document. In the standard bag-of-words model, the vector
+is a collection of weights, one per word in the lexicon, with the weights being
+some representation of the ``importance'' of the word in
+the document, or the ``information'' of the word relative to the corpus.
+One of the key features of this representation is that each document is
+replaced by a vector, and the vectors are commensurate -- they
+have the same length and each component corresponds to the same measurement
+on the document.\footnote{In practice these vectors may be stored in a 
+sparse representation, so it is technically not true that they all are of the
+same length, however from an analytical perspective this is irrelevant.}
+
+First let's 
+consider representing each document as a vector of word counts, one for
+each word.
+To count the words in a document, we can use the \texttt{table} command
+**********as was discussed in the Introduction. *****************
+To illustrate this, we use the \texttt{crude} dataset from the tm package.
+We split the documents into words and count them. First, we obtain the
+lexicon:
+
+<<lex.crude,cache=TRUE,tidy=FALSE>>=
+library(tm)
+data(crude)
+docs <- as.character(crude)
+words <- strsplit(docs,split="\\W")
+lex <- unique(unlist(words))
+length(lex)
+@
+
+Note that we have not cleaned the data at all, this example is purely
+for illustrative purposes.
+
+Next we count the words in each document. Note the trick of appending
+the lexicon onto the document -- this is so that words that do not appear
+in a given document appear in the counts with a value of $0$. If we do
+not do this, each table will have a different length, and we will have to
+``sync-up'' the vectors each time we want to compare them to each other.
+
+<<wc.crude,cache=TRUE,tidy=FALSE>>=
+cnts <- sapply(words,function(x) {
+      table(c(x,lex))-1
+    },simplify="array")
+@
+
+This illustrates the basic idea, but in general this is not what one wants
+to do. The main problem with the above is exactly the ``trick'' that puts
+the counts into the count matrix. Typically, this matrix is sparse, and
+we would rather not have to store it all, and we certainly don't want to 
+perform a lot of calculations on $0$'s if we can help it. The 
+tm package solves this through the use of the sparse matrix representation
+from the package slam (the \texttt{simple\_triplet\_matrix}), and it also
+takes advange of some parallel processing.
+
+Let's stick with the idea of creating a true word-count matrix,
+rather than a sparse representation. The above
+trick allows us to use \texttt{table} and the lexicon to fill in the matrix, but
+it seems extremely inefficient. Consider instead the approach using the
+matching capability of R:
+
+<<wc.crude2,cache=TRUE,tidy=FALSE>>=
+cnts <- sapply(words,function(x) {
+            out <- rep(0,length(lex))
+            count <- table(x)
+            out[which(lex %in% names(count))] <- count
+          },simplify="array")
+@
+
+In the one case, we build the matrix by over-counting by one, then subtract
+one, in the other we only count the words that are there, then stick them
+in the matrix according to where they belong. Which is faster?
+
+There is
+something to be said for doing things in ``pure R'',
+at least for small datasets in the initial exploratory stages. One
+has complete control over which functions are being called, and can 
+easily check the calculations at each stage of the process. Once one
+is satisfied with the basic algorithm, considerations of efficiency come
+into play, and one is well advised to see if someone has already implemented
+the algorithms in a package (such as tm). A small timing example is shown 
+below, to illustrate the various timings for the three approaches.
+
+First we obtain some documents, by obtaining abstracts from the
+Journal of Statistical Software:
+
+<<jssdata,cache=TRUE,tidy=FALSE>>=
+library(tm)
+library(OAIHarvester)
+library(XML)
+
+getData <- function()
+{
+   x <- oaih_list_records("http://www.jstatsoft.org/oai")
+   JSS_papers <- oaih_transform(x[,"metadata"])
+   ## order by time
+   ord <- order(as.Date(unlist(JSS_papers[,"date"])))
+   JSS_papers <- JSS_papers[ord,]
+   ## only those papers with an abstract
+   abst <- grep("Abstract:",JSS_papers[,"description"])
+   JSS_papers <- JSS_papers[abst,]
+   JSS_papers
+}
+
+remove_HTML_markup <- function(s)
+{
+   doc <- htmlTreeParse(s,asText=TRUE,trim=FALSE)
+   xmlValue(xmlRoot(doc))
+}
+
+JSS_papers <- getData()
+
+n <- nrow(JSS_papers)
+N <- 18
+
+clean1 <- function(x) {
+   doc <- gsub("[[:punct:]]|[[:digit:]]","",x)
+   doc <- gsub("\\s+"," ",doc)
+   gsub("(^\\s)|(\\s$)","",doc)
+}
+
+docs <- rep(sapply(clean1(JSS_papers[,"description"]),
+            remove_HTML_markup),N)
+length(docs)
+
+lexicon <- tolower(unlist(strsplit(docs,split="\\s")))
+lexicon <- sort(unique(lexicon))
+length(lexicon)
+
+@
+
+Now we compute the term frequencies for various collections of documents
+drawn from this corpus. 
+We then compare the
+\texttt{table} command (with and without the ``lexicon trick'')
+to the \texttt{TermDocumentMatrix}
+command from the tm package.
+
+<<vect1,tidy=FALSE>>=
+
+tableTrick <- function(docs,lexicon)
+{
+   words <-strsplit(tolower(docs),split=" ")
+    n <- length(docs)
+    out <- matrix(0,nrow=n,ncol=length(lexicon))
+    for(i in 1:n){
+       out[i,] <- table(c(words[[i]],lexicon))-1
+   }
+   out
+}
+
+tableMatch <- function(docs,lexicon)
+{
+   words <-strsplit(tolower(docs),split=" ")
+   n <- length(docs)
+   out <- matrix(0,nrow=n,ncol=length(lexicon))
+   for(i in 1:n){
+         count <- table(words[[i]])
+         out[i,which(lexicon %in% names(count))] <- count
+       }
+   out
+}
+
+tmTf <- function(docs) {
+   corp <- Corpus(VectorSource(docs))
+   TermDocumentMatrix(corp,
+      control=list(weighting=weightTf,
+                   wordLengths=c(1,Inf)))
+}
+
+@
+
+We can now see which algoritm is most efficient for
+various corpus sizes.
+The benchmark package lets us time the three methods for various
+corpus sizes, and compare their performance.
+
+<<vect2,cache=TRUE,tidy=FALSE,dependson='jssdata'>>=
+library(rbenchmark)
+
+benchmark(tableMatch(docs[1:100],lexicon),
+    tableTrick(docs[1:100],lexicon),
+    tmTf(docs[1:100]),
+    columns=c('test','replications','elapsed','relative'),
+    replications=100)
+
+benchmark(tableMatch(docs[1:1000],lexicon),
+    tableTrick(docs[1:1000],lexicon),
+    tmTf(docs[1:1000]),
+    columns=c('test','replications','elapsed','relative'),
+    replications=100)
+
+benchmark(tableMatch(docs[1:10000],lexicon),
+    tableTrick(docs[1:10000],lexicon),
+    tmTf(docs[1:10000]),
+    columns=c('test','replications','elapsed','relative'),
+    replications=100)
+
+@
+
+As can be seen in the tables above, the \texttt{tableMatch} function,
+that uses \texttt{table} and \verb|%in%| to count the words and fill
+the matrix is much faster than the ``trick'' method, and for smaller
+corpora it is faster than the \texttt{tm} approach. By the time we get
+to corpora of $10,000$ documents or more, \texttt{tm} is faster, and
+because it uses a sparse representation, provides a substantial improvement
+in memory as well.
+
+Which technique should one use? If one only cares about word counts, 
+and the size of the corpus and size of the lexicon are sufficiently
+small to allow the full matrix to be instantiated, the simple approach
+(tableMatch) is clearly the way to go. For larger corpora the more
+efficient storage of the simple triplet matrix from the package slam,
+or perhaps a big matrix from the package bigmemory should be utilized.
+The exercises below will explore some of these ideas.
+
+The \texttt{TermDocumentMatrix} function also runs some of its calculations
+in parallel (on a multi-core machine)\footnote{On a Linux machine, run the
+\texttt{top} function while processing a large corpus, and you will see
+several \texttt{R} processes spawned.}
+
+\subsection*{Exercises}
+\begin{ExerciseList}
+\Exercise Make a competitor to the \texttt{tableTrick} and \texttt{tableMatch}
+functions that uses the fact that a factor can be given the set of levels as
+an argument. For example,
+<<tableFactor,echo=TRUE>>=
+factor(letters[1:6],levels=letters[1:10])
+@
+How does this compare with the other methods?
+\Exercise The tm matrix uses the simple triplet matrix for the (generally sparse)
+term document matrix. 
+Recode the \texttt{tableMatch} function to utilize a 
+\texttt{simple\_triplet\_matrix} instead of a matrix, and see how this
+effects the preformance.
+\Exercise Modify the \texttt{tableMatch} function to run the counting on multiple cores.
+\end{ExerciseList}
+
+\subsection{Weighting}
+\section{Concordances, associations}
+\section{Zipf}
+\section{Stop Word Estimation}
+\section{String Manipluation}
+\subsection{Searching}
+\subsection{Regular Expressions}
+\section{Distances}

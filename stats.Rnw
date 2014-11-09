@@ -1,0 +1,1160 @@
+\section{Latent Semantic Indexing}
+
+<<lsipackages,echo=FALSE,results='hide'>>=
+library(tm)
+library(topicmodels)
+@
+
+Latent semantic indexing (LSI) is a way of reducing the dimensionality
+of the term document matrix by embedding it in a lower dimensional
+space. The method simultaneously produces an embedding of both the
+documents and the terms, in a way that we will make explicit below.
+
+For illustration purposes, we will consider a subset of the Quantitative
+Finances data set: those documents with a primary category of either
+``Portfolio Management'' or ``Risk Management''. An obvious inference task
+is to build a classifier that would allow one to predict the class of a 
+new document. One might also be interested in which terms are important
+for describing these two document sets, and which terms are more 
+useful for discriminating between them. Someone (like ourselves) who
+is ignorant of economics might ask whether these are actually two 
+distinct fields or simply two different terms for the same thing.
+
+<<lsiTM,cache=TRUE,tidy=FALSE,dependson='qfin2'>>=
+library(tm)
+
+load('Data/arqfin.RData')
+inds <- which(qf.primary %in% c("Portfolio Management",
+            "Risk Management"))
+docs <- paste(qf[inds,'title'],qf[inds,'description'])
+classes <- qf.primary[inds]
+qf.colors <- match(classes,sort(unique(classes)))
+
+#Preprocess the text and convert to document-term matrix
+dtm.control <- list(
+  tolower = TRUE,
+  removePunctuation = TRUE,
+  removeNumbers = TRUE,
+  stopwords = TRUE,
+  stemming = TRUE,
+  wordLengths = c(3, Inf),
+  bounds=list(global=c(5,length(docs)/2)),
+  weighting = weightTfIdf
+)
+
+corp <- Corpus(VectorSource(docs))
+
+dtmQF.TfIdf <- DocumentTermMatrix(corp, control = dtm.control)
+dtmQF.TfIdf <- removeSparseTerms(dtmQF.TfIdf, 0.99)
+dim(dtmQF.TfIdf)
+@
+
+The basic tool of LSI is the singular value decomposition from linear algebra.
+Write $X_{n,m}$ for a matrix $X$ with $n$ rows and $m$ columns.
+Given a real valued matrix\footnote{There is a version for complex valued matrices
+as well.}
+$X_{n,m}$,
+there exist real valued orthogonal matrices $U_{n,n}$ and  $V_{m,m}$,
+and non-negative diagonal matrix $D_{n,m}$ such that:
+$$
+   X=UDV^t
+$$
+In the case where $n\neq m$, ``diagonal'' means
+that only $d_{i,i}$ can be non-zero.
+Furthermore, the best (under the Frobenius norm) low rank approximation to $X$ of rank $d$ is
+formed by taking the first $d$ columns of these matrices.
+
+$U$ corresponds to the left singular vectors, $V$ the right singular vectors, and the diagonal
+of $D$ are the singular values of $X$.
+
+The LSI embedding into $\mathbb{R}*d$ of a term-document matrix $M$ 
+is then constructed by first taking the first $d$ singular vectors and scaling them
+by the square root of the first $d$ singular values.
+If we take the left singular vectors (contained in the columns of $U$), we are embedding the
+$n$ documents. If we take the right singular vectors (the columns of $V$) we are embedding
+the terms.
+
+<<lsi1,cache=TRUE,tidy=FALSE,dependson='lsiTM'>>=
+z <- svd(dtmQF.TfIdf)
+@
+
+\begin{figure}
+\centering
+<<qfinLSI1fig,echo=FALSE,results='hide',dependson='qfinLSI'>>=
+plot(scale(z$u[,1:2],center=FALSE,scale=sqrt(1/z$d[1:2])),
+     pch=20,col=qf.colors,xlab=expression(x[1]),ylab=expression(x[2]))
+legend(-0.07,0.225,c("Portfolio Management","Risk Management"),pch=20,col=1:2)
+@
+\caption{\label{fig:qf2D}
+}
+\end{figure}
+
+Figure \ref{fig:qf2D} depicts the embedding of the documents into $\mathbb{R}^2$.
+As can be seen in the figure, there is evidence for the proposition that the two
+classes are somewhat distinct.
+
+\begin{figure}
+\centering
+<<qfinLSI1figboth,echo=FALSE,results='hide',dependson='qfinLSI'>>=
+plot(scale(z$u[,1:2],center=FALSE,scale=sqrt(1/z$d[1:2])),
+     pch=20,col=1,xlab=expression(x[1]),ylab=expression(x[2]))
+points(scale(z$v[,1:2],center=FALSE,scale=sqrt(1/z$d[1:2])),
+     pch=15,col=3)
+legend(-0.07,0.25,c("Document","Term"),pch=c(20,15),col=c(1,3))
+@
+\caption{\label{fig:qf2Dboth}
+}
+\end{figure}
+
+Figure \ref{fig:qf2Dboth} depicts the joint embedding of the documents and the terms.
+One might wonder how to interpret this. In a sense, it seems that close term document
+pairs should be related, and this is true in the following way: if document $i$ has vector
+representation $u_i$ and term $j$ has vector representation $v_j$, then the dot product
+$u_i^tv_j$ is approximately equal to the value of $M_{ij}$. Thus,
+if $M_{i,j}$ is the relative term frequency (the number of times the term is in the
+document divied by the number of terms in the document), then we can think of the
+dot product as being in some sense related to the probability the term is in the
+document.
+
+The above discussion should not be taken literally, as we would need to be quite a
+bit more careful about things in order for it to make mathematical sense. 
+Further, note that the two dimensional representation in Figure \ref{fig:qf2Dboth}
+is in no sense representative of the relationship between the documents and the words --
+reducing the dimension to $2$ is fine for making pretty pictures, but there's
+no chance that the relationships between the documents and the words in this
+corpus is well modeled with two parameters.
+
+Let's investigate empirically the statement that the dot product of the word vector with the
+document vector is related to the probability that the word is in the document.
+
+<<lsiworddists,cache=TRUE,tidy=FALSE,dependson='lsi1'>>=
+docv <- scale(z$u[,1:100],center=FALSE,scale=sqrt(1/z$d[1:100]))
+wordv <- scale(z$v[,1:100],center=FALSE,scale=sqrt(1/z$d[1:100]))
+S <- docv %*% t(wordv)
+
+dtm.control <- list(
+  tolower = TRUE,
+  removePunctuation = TRUE,
+  removeNumbers = TRUE,
+  stopwords = TRUE,
+  stemming = TRUE,
+  dictionary=colnames(dtmQF.TfIdf),
+  weighting = weightTf
+)
+
+dtmQF.Tf <- DocumentTermMatrix(corp, control = dtm.control)
+dim(dtmQF.Tf)
+M <- as.matrix(dtmQF.Tf)
+sIN <- unlist(sapply(1:nrow(dtmQF.TfIdf),
+              function(i) 
+                 S[i,which(M[i,]>0)]))
+sOUT <- unlist(sapply(1:nrow(dtmQF.TfIdf),
+              function(i) 
+                 S[i,which(M[i,]==0)]))
+@
+
+Figure \ref{fig:qf2similarity} compares the similarity of a document to the words
+in the document as compared to the words that are not in the document, using the
+LSI document and word vectors in dimension $d=100$. This value for the embedding
+dimension was chosen to be large but not equal to the full dimension of the matrix,
+but otherwise was entirely arbitrary.
+
+\begin{figure}
+\centering
+<<qfinLSI1Similarities,echo=FALSE,results='hide',dependson='qfinLSI'>>=
+layout(rbind(c(1,1,1,1,1,1),
+             c(1,1,1,2,2,1),
+             c(1,1,1,2,2,1),
+             c(1,1,1,1,1,1),
+             c(1,1,1,1,1,1),
+             c(1,1,1,1,1,1)))
+d1 <- density(sIN)
+d2 <- density(sOUT)
+plot(d1,xlab="Similarity",ylab="Density",
+     xlim=c(0,1),
+     ylim=c(0,max(c(d1$y,d2$y))),lwd=2)
+lines(d2,lty=2,lwd=2)
+legend(0.1,60,c("Words in the Document","Words not in the Document"),lty=1:2,lwd=2)
+boxplot(list(sIN,sOUT),names=c("IN","OUT"),outline=FALSE,ylim=c(0,0.10))
+@
+\caption{\label{fig:qf2similarity}
+Probability density curves comparing the similarity between a document and the words
+in the document vs the document and words that are not in the document. This plot
+uses an LSI embedding into $\mathbb{R}^100$. The densities
+and the inset boxplot are two views that show that the 
+documents tend to be much more simlar to the words in the document than to words 
+not in the document.
+}
+\end{figure}
+
+Of course, this then begs the question: what embedding dimension should we pick? As is
+usual with spectral methods (eigenvector or singular vector methods), one
+looks at the scree plot. Figure \ref{fig:qfscree} depicts this.
+
+\begin{figure}
+\centering
+<<qfinLSI2fig,echo=FALSE,results='hide',dependson='qfinLSI'>>=
+plot(z$d,type='l',xlab="Dimension",ylab="Singular Value")
+@
+\caption{\label{fig:qfscree}
+}
+\end{figure}
+
+The usual procedure is to find ``the elbow in the curve'' and use that for the
+dimension, however, this is not a very useful suggestion without a resonable definition
+of ``elbow''. We could ``eye-ball'' the curve and say there's an elbow around $d=50$
+(or $d=10$ or $d=100$ or pretty much anywhere). Instead, we could try the
+method of \cite{zhu:2006}, which uses a profile likelihood to pick the embedding dimension.
+
+<<profileLikelihood,tidy=FALSE>>=
+profileLikelihood <- function(scree)
+   {
+   p <- length(scree)
+   out <- rep(0,p)
+   mu1 <- mean(scree[1:p])
+   s1 <- sd(scree[1:p])
+   out[1] <- sum(log(dnorm(scree[1:p],mu1,s1)))
+   for(q in 2:(p-1)){
+      mu1 <- mean(scree[1:q])
+      s1 <- var(scree[1:q])
+      mu2 <- mean(scree[(q+1):p])
+      s2 <- var(scree[(q+1):p])
+      sigma2 <- sqrt(((q-1)*s1+(p-q-1)*s2)/(p-2))
+      out[q] <- sum(log(dnorm(scree[1:q],mu1,sigma2)))+
+                sum(log(dnorm(scree[(q+1):p],mu2,sigma2)))
+   }
+   mu1 <- mean(scree[1:p])
+   s1 <- sd(scree[1:p])
+   out[p] <- sum(log(dnorm(scree[1:p],mu1,s1)))
+   out
+   }
+@
+
+\begin{figure}
+\centering
+<<qfinPFfig,echo=FALSE,results='hide',dependson='lsi1'>>=
+m <- par('mar')
+pf <- profileLikelihood(z$d)
+par(mar=c(5, 4, 4, 4) + 0.1)
+plot(pf,type='l',xlab="Dimension",ylab="Profile Likelihood",lwd=2)
+abline(v=which.max(pf),lty=2)
+par(new=TRUE)
+plot(z$d,type='l',axes=FALSE,xlab='',ylab='')
+axis(4,at=0:3,labels=0:3)
+mtext("Singular Value",side=4,line=2.5)
+par(mar=m)
+@
+\caption{\label{fig:qfprofile}
+Profile likelihood for the $2$ class Quantitative Finance data.
+The Maximum is at $d=\Sexpr{which.max(pf)}$.
+}
+\end{figure}
+
+An alternative philosophy is that the right embedding dimension is the one
+that performs best for the inference we wish to make. If we want to build a
+classifier, then we might consider the dimension that maximizes classifier 
+performance. We illustrate this below, with the caveat that even though we
+are using crossvalidation to estimate classifier performance, we are not
+crossvalidating the choice of dimension. However, this is unlikely to make
+much difference from a practical standpoint.
+
+<<knndimchoice,cache=TRUE,tidy=FALSE>>=
+library(class)
+N <- 100
+nk <- 10
+set.seed(234500)
+x <- scale(z$u[,1:N],center=FALSE,scale=sqrt(1/z$d[1:N]))
+out <- matrix(NA,nrow=nk,ncol=N)
+for(i in 1:N){
+   for(k in 1:nk){
+      cls <- knn.cv(x[,1:i,drop=FALSE],as.factor(classes),
+                       k=k)
+      out[k,i] <- sum(cls != classes)/length(classes)
+   }
+}
+@
+
+\begin{figure}
+\centering
+<<qfinknnfig,echo=FALSE,results='hide',dependson='knndimchoice'>>=
+plot(out[1,],type='n',xlab="Dimension",
+     ylab="Probability of Error",lwd=2,
+     ylim=c(0,max(out)))
+for(i in 1:nk){
+   lines(out[i,])
+}
+@
+\caption{\label{fig:qfknn}
+Probability of error 
+as a function of embedding dimension
+for a $5$ nearest neighbor classifier on the
+$2$ class Quantitative Finance data. 
+}
+\end{figure}
+
+As can be seen in Figure \ref{fig:qfknn}, the best classifier performance ranges
+from an embedding dimension of
+\Sexpr{min(apply(out,1,which.min))} to \Sexpr{max(apply(out,1,which.min))}
+as compared to the value of 
+\Sexpr{which.max(pf)} given by the profile likelihood algorithm.
+From $k=3$ on the dimension selected is between 
+\Sexpr{min(apply(out[3:nk,],1,which.min))} and \Sexpr{max(apply(out[3:nk,],1,which.min))}. 
+Extending the
+search into higher dimensions shows that these are the optimal dimensions for
+this classifier.
+
+We could do the same experiment for any other classifier, or for any other inference.
+Again, we want to stress that this kind of experiment should be performed on training data.
+Because we are using the data to pick the dimension, any classifier performance values
+reported are likely to be biased. Instead, one should use training data to pick the 
+embedding dimension (and the classifier), then with all of those choices fixed, train
+the classifier and test it on a witheld test set.
+
+One might ask: Why the huge discrepancy between choice of dimension? The way we
+like to think about is that choosing dimension from a scree plot is in effect
+asking: what is the demension in which ``all'' the information is retained, while
+removing ``all'' the noise. This is without consideration of the inference
+task. Thus, it seems likely that ``easier'' inference tasks require less
+of the information contained in the data (only that which is relevant to the
+inference) and so the ``correct'' embedding for a particular task is likely
+to be less than that found by the profile likelhood method.
+
+
+\subsection{Embedding}
+
+An alternate approach to the singular value decomposition on the term document matrix, is to
+compute the dissimilarity matrix between the documents (as represented by the vectors
+in the vector space model we are using) and then use this and multidimensional scaling
+to embed the documients.
+
+Typically one uses a cosine dissimilarity, under the assumption that the important information is 
+not the distance between the (endpoints of) the vectors, but rather the angle between
+the vectors. In practice, the similarity is the cosine of the angle between the vectors, and the
+dissimilarity is one minus this.
+\begin{equation}
+D_{cosine}(x,y) = 1-\frac{x \cdot y}{||x|| ||y||}.
+\end{equation} 
+
+<<lsicosine,cache=TRUE,tidy=FALSE,dependson='lsiTM'>>=
+D <- dissimilarity(dtmQF.TfIdf,method='cosine')
+Z <- cmdscale(D)
+@
+
+\begin{figure}
+\centering
+<<qfincosinefig,echo=FALSE,results='hide',dependson='lsicosine'>>=
+plot(Z,xlab=expression(X[1]),
+     ylab=expression(X[2]),pch=20,col=qf.colors)
+legend(-0.15,0.25,c("Portfolio Management","Risk Management"),pch=20,col=1:2,ncol=2)
+@
+\caption{\label{fig:qfcosine}
+Embedding of the two class Quantitative Finance data using multidimensional scaling
+applied to the cosine dissimilarity matrix. Compare with \ref{fig:qf2D}.
+}
+\end{figure}
+
+Comparing Figure \ref{fig:qfcosine} with Figure \ref{fig:qf2D}, it seems that the former
+is ``better'', in the sense that the two classes seem marginally better separated in
+this $2$-dimensional embedding. With all the caveats about embedding into such a low
+dimensional space in mind, let's perform a simple experiment to test this. We'll
+build classifiers on the two embeddings, and see which has better classification 
+performance.
+
+<<lsicosinecmp,cache=TRUE,tidy=FALSE,dependson=c('lsiTM','qfinLSI')>>=
+x <- scale(z$u[,1:2],center=FALSE,scale=sqrt(1/z$d[1:2]))
+k1 <- knn.cv(x,as.factor(classes),k=3)
+table(classes,k1)
+k2 <- knn.cv(Z,as.factor(classes),k=3)
+table(classes,k2)
+@
+
+Again, there's nothing magic about $3$-nearest neighbor classifiers, and one could imagine
+trying many different classifiers (and different embedding dimensions) but the point is
+that the idea of computing distances (or dissimilarities) in the full dimension, followed
+by multidimensional scaling has merit. 
+
+This approach is only practical if the number of observations is small enough to allow
+the computation of the full dissimilarity matrix. Under sparseness assumptions 
+on the vector space representation
+(which are almost
+always true in text corpora)
+the singular value decomposition can (almost always) be implemented even for large corpora,
+and so this approach can be applied to much larger data sets than the dissimilarity approach.
+
+\subsubsection{Shakespeare}
+<<shakedata,cache=TRUE,echo=FALSE,return='hide'>>=
+load("Data/shakespeare.RData")
+@
+
+Let's look at the plays of Shakespeare. First, we will aggregate all
+the acts for each play, so that each play is a document (recall that the
+sonnets form the first document in this set).
+
+<<shakespeareDocs,echo=-1,cache=TRUE,tidy=FALSE,dependson='shakedata'>>=
+Sdocuments <- aggregate(shakespeare,
+   by=list(shakespeare.class),
+   FUN='paste',collapse=' ')[,2]
+@
+
+<<shakespeareTM,echo=-1,cache=TRUE,tidy=FALSE,dependson='shakepeareDocs'>>=
+library(tm)
+
+corp <- Corpus(VectorSource(Sdocuments))
+
+dtmS.Tf <- DocumentTermMatrix(corp, 
+   control = list(
+     tolower = TRUE,
+     removePunctuation = TRUE,
+     removeNumbers = TRUE,
+     stopwords = TRUE,
+     stemming = TRUE,
+     weighting = weightTf))
+
+dtmS.TfIdf <- DocumentTermMatrix(corp, 
+   control = list(
+     tolower = TRUE,
+     removePunctuation = TRUE,
+     removeNumbers = TRUE,
+     stopwords = TRUE,
+     stemming = TRUE,
+     weighting = weightTfIdf))
+
+dtmS.Tf <- removeSparseTerms(dtmS.Tf, 0.95)
+dim(dtmS.Tf)
+dtmS.TfIdf <- removeSparseTerms(dtmS.TfIdf, 0.95)
+dim(dtmS.TfIdf)
+@
+
+<<shakeemb,cache=TRUE,echo=TRUE,dependson='shakespeareTM'>>=
+D1 <- dissimilarity(dtmS.Tf,method='cosine')
+Z1 <- cmdscale(D1)
+D2 <- dissimilarity(dtmS.Tf,method='Hellinger')
+Z2 <- cmdscale(D2)
+D3 <- dissimilarity(dtmS.TfIdf,method='cosine')
+Z3 <- cmdscale(D3)
+D4 <- dissimilarity(dtmS.TfIdf,method='Hellinger')
+Z4 <- cmdscale(D4)
+@
+
+\begin{figure}
+\centering
+<<shakeembFig,echo=FALSE,results='hide',dependson='shakeemb'>>=
+par(mfrow=c(2,2))
+plot(Z1,pch=20,xlab=expression(TF[1]),ylab=expression(TF[2]),
+     main='Cosine')
+plot(Z2,pch=20,xlab=expression(TF[1]),ylab=expression(TF[2]),
+     main='Hellinger')
+plot(Z3,pch=20,xlab=expression(TFIDF[1]),ylab=expression(TFIDF[2]),
+     main='Cosine')
+plot(Z4,pch=20,xlab=expression(TFIDF[1]),ylab=expression(TFIDF[2]),
+     main='Hellinger')
+par(mfrow=c(1,1))
+@
+\caption{\label{fig:shakespeareEmb4}
+}
+\end{figure}
+
+\begin{figure}
+\centering
+<<shakeembFigH1,echo=FALSE,results='hide',dependson='shakeemb'>>=
+
+inds <- which(Z4[,1]>(-0.04))
+
+pos <- rep(3,length(inds))
+pos[9] <- 4
+pos[10] <- 4
+pos[5] <- 1
+pos[4] <- 2
+pos[12] <- 2
+plot(Z4[inds,],xlab=expression(TFIDF[1]),ylab=expression(TFIDF[2]),
+     main='Hellinger',col=1,pch=20)
+labs <- titles[inds]
+labs[grep("THE THIRD PART OF KING HENRY THE SIXTH",labs)] <- "PART III OF HENRY VI"
+text(Z4[inds,],labels=labs,cex=0.5,pos=pos,xpd=TRUE)
+
+@
+\caption{\label{fig:shakespeareEmbtfidf1}
+The ``king'' plays of Shakespeare under the TfIdf embedding of the
+Hellinger distance.
+}
+\end{figure}
+
+\begin{figure}
+\centering
+<<shakeembFigH2,echo=FALSE,results='hide',dependson='shakeemb'>>=
+inds <- which(Z4[,1]<(-0.046))
+pos <- rep(3,length(inds))
+pos[11] <- 2
+pos[24] <- 2
+pos[25] <- 2
+pos[4] <- 4
+pos[12] <- 4
+pos[18] <- 4
+pos[22] <- 4
+pos[16] <- 1
+plot(Z4[inds,],xlab=expression(TFIDF[1]),ylab=expression(TFIDF[2]),
+     xlim=c(min(Z4[,1]),-0.046),
+     main='Hellinger',col=1,pch=20)
+text(Z4[inds,],labels=titles[inds],cex=0.5,pos=pos,xpd=TRUE)
+@
+\caption{\label{fig:shakespeareEmbtfidf2}
+Those works of Shakespeare not shown in Figure \ref{fig:shakespeareEmbtfidf1}.
+}
+\end{figure}
+
+\begin{figure}
+\centering
+<<shakeembFigHclust,echo=FALSE,results='hide',dependson='shakeemb'>>=
+stitles <- readLines("Data/shorttitles.txt")
+plot(hclust(D4,method='ward'),labels=stitles,cex=.75,
+     main="Hellinger Distance",xlab="TFIDF",sub="")
+@
+\caption{\label{fig:shakespeareD4hclust}
+The works of Shakespeare, clustered via hierarchical clustering.
+}
+\end{figure}
+
+
+\subsection*{Exercises}
+\begin{ExerciseList}
+\Exercise Using the two class Quantitative Finance data,
+compare Euclidean distance to cosine dissimilarity. Explore other
+dissimilarity measures (the library \texttt{proxy} implements a large
+number).
+\Exercise Implement a two stage approach: first use the profile likelihood to find an embedding
+dimension and use the singular value decomposition to embed the data. Then compute a dissimilarity
+on these vectors (can you argue that cosine is the natural dissimilarity to use here?) 
+with a final embedding using \texttt{cmdscale} with an embedding dimension determined
+by a crossvalidated $k$-nearest neighbor classifier.
+\Exercise\label{ex:alice} Did Shakespeare write Alice in Wonderland? Ignore trivialities
+such as the date that Lewis Carroll\footnote{Note that this is a pseudonym!
+Perhaps Dobson was also a pseudonym. As Golem might say, that Shakespeare
+was tricksy!}
+claimed to have written it. You can obtain the text for Alice using
+project Gutenberg the same way we obtained Shakespeare's works, or
+install the \texttt{languageR} package, which contains Alice, Moby Dick,
+and The Wizard of Oz. Using the LSI method, compare Alice to the corpus
+containing the plays of Shakespeare. 
+Argue from word usage (term frequencies) and various methods for embedding
+the documents and/or clustering the documents, 
+either through singular value decompositions or the
+dissimilarity approach.
+\Exercise Redo Exercise \ref{ex:alice} by using the \texttt{dictionary}
+variable, setting the dictionary to only include stop words. Do you 
+come to the same conclusion?
+\end{ExerciseList}
+
+\subsection{Probablistic Latent Semantic Indexing}
+
+\section{Topic Models}
+
+
+<<topicsTM,cache=TRUE,tidy=FALSE,dependson='lsiTM'>>=
+library(tm)
+
+dtm.control <- list(
+  tolower = TRUE,
+  removePunctuation = TRUE,
+  removeNumbers = TRUE,
+  stopwords = TRUE,
+  stemming = TRUE,
+  wordLengths = c(3, Inf),
+  bounds=list(global=c(5,length(docs)/2)),
+  weighting = weightTf
+)
+
+dtmQF.Tf <- DocumentTermMatrix(corp, control = dtm.control)
+dtmQF.Tf <- removeSparseTerms(dtmQF.Tf, 0.99)
+dim(dtmQF.Tf)
+@
+
+We fit below a topic model with $10$ topics. We chose the value
+$10$ for no reason other than illustrative purposes. Clearly, 
+one should put some thought into how many clusters to fit, just
+as one should think about how many dimensions to choose in 
+a latent semantic indexing model. We will discuss this later,
+but for now, let's consider a $10$ topic model.
+
+<<qfinTM,cache=TRUE,tidy=FALSE,dependson='topicsTM'>>=
+library(topicmodels)
+# Fit a 10 topic topic model
+set.seed(12345)
+model10 <- LDA(dtmQF.Tf, 10, method = "Gibbs") 
+@
+
+Note that we set the seed prior to running \texttt{LDA}. Like all
+models that optimize some criterion with an initial start this is
+essential for reproducability.
+
+\begin{figure}
+\centering
+<<qfinTM1fig,echo=FALSE,cache=TRUE,results='hide',dependson='qfinTM'>>=
+color.names <- c("black","red")
+hmTM <- heatmap(posterior(model10)$topics,
+        labRow=NA,
+        #labCol=terms(model10,1),
+        labCol=apply(terms(model10,2),2,paste,collapse='\n'),
+        col=gray((255:0)/255),
+        RowSideColors=color.names[qf.colors],
+        las=2)
+@
+\caption{\label{fig:qfmodel1heat}
+Heatmap for the $2$ class Quantitative Finance data. The rows
+correspond to documents, the columns to topics. The column
+names on the x-axis are the top $2$ words of the given topic.
+The colors on the y-axis indicate the class of the document.
+}
+\end{figure}
+
+Figure \ref{fig:qfmodel1heat} provides one look at the topic model.
+The rows and columns are ordered via a hierarchical clustering, and
+so see blocks of dark colors indicating groups of documents that
+share a high value for a given cluster. From this, it seems like
+somewhere between half and two thirds of the documents are primarily
+single topic documents, while the rest are associated
+with a more varied set of 
+topics.
+
+Looking at the bottom of the plot showing the two strongest words
+in the topic, we can already start assessing the ``meaning'' of the
+topics. The two closest topics are {\bf probabl random} and
+{\bf model time}, and we can easily come up with a reason why
+this makes sense.
+
+This ability to extract meaningful topics from the data and
+use these topics to interpret the corpus is one of the most
+powerful attributes of the topic model approach. However,
+it must be used with care. Consider Table \ref{table:TMTop10},
+which shows the top $10$ words in each topic. The table has been
+ordered in the same way as in Figure \ref{fig:qfmodel1heat}.
+
+<<qfinTopicsTop10,echo=FALSE,results='asis',dependson=c('topicsTM','qfinTM1fig')>>=
+top10 <- terms(model10,10)[,hmTM$colInd]
+a <- table(top10)
+dups <- names(a[a>1])
+cat("\\begin{table}\n")
+cat("\\centering\n")
+cat("\\caption{\\label{table:TMTop10}\nTop $10$ words in the $10$ topics fit to the $2$ class quantitative finance data. Words appearing in more than one topic are in bold font.}\n")
+cat("\\begin{tabular}{|lllll|}\n")
+cat("\\hline\n")
+cat("\\hline\n")
+cat("{\\bf Topic 1} & {\\bf Topic 2} & {\\bf Topic 3} & {\\bf Topic 4} & {\\bf Topic 5}\\\\\n")
+cat("\\hline\n")
+for(i in 1:10){
+   for(j in 1:4){
+      if(top10[i,j] %in% dups) cat("{\\bf ")
+      cat(top10[i,j])
+      if(top10[i,j] %in% dups) cat("}")
+      cat(" & ")
+   }
+   if(top10[i,5] %in% dups) cat("{\\bf ")
+   cat(top10[i,5])
+   if(top10[i,5] %in% dups) cat("}")
+   cat('\\\\\n')
+}
+cat("\\hline\n")
+cat("\\hline\n")
+cat("{\\bf Topic 6} & {\\bf Topic 7} & {\\bf Topic 8} & {\\bf Topic 9} & {\\bf Topic 10}\\\\\n")
+cat("\\hline\n")
+for(i in 1:10){
+   for(j in 6:9){
+      if(top10[i,j] %in% dups) cat("{\\bf ")
+      cat(top10[i,j])
+      if(top10[i,j] %in% dups) cat("}")
+      cat(" & ")
+   }
+   if(top10[i,10] %in% dups) cat("{\\bf ")
+   cat(top10[i,10])
+   if(top10[i,10] %in% dups) cat("}")
+   cat('\\\\\n')
+}
+cat("\\hline\n")
+cat("\\end{tabular}\n")
+cat("\\end{table}\n")
+@
+
+In Table \ref{table:TMTop10} we have set in bold font those words
+that occure more than once in the table. Note that it is still
+possible to make sense of these topics -- although this is probably
+easier for an economist who is familiar with the subject than it is
+for the rest of us. It is also clear that there are a number of
+``high value'' words\footnote{By this we mean words which have
+clear specialized meaning and which we as humans will pay attention
+to. Similary ``low value'' words are ones which are essentially content
+free.}
+such as {\bf model}, {\bf asset}, {\bf optim}
+and {\bf function} that appear in multiple topics
+as well as ``low value'' words such as {\bf can},
+{\bf use} and {\bf paper}. There are also a few of 
+apparent ``low value''
+words that appear only once ({\bf one}, {\bf also} and {\bf exist}).
+With that said, there are a lot of terms that are obviously germaine
+to economics and to quantitative mathematics. From that perspective,
+the topic model has clearly found out something important about the
+content of the data.
+
+<<qfinTopicsTop20,echo=FALSE,results='asis',dependson=c('topicsTM','qfinTM1fig')>>=
+top20 <- terms(model10,20)[,hmTM$colInd]
+a <- table(top20)
+dups <- names(a[a>1])
+cat("\\begin{table}\n")
+cat("\\centering\n")
+cat("\\caption{\\label{table:TMTop20}\nTop $20$ words in the $10$ topics fit to the $2$ class quantitative finance data. Words appearing in more than one topic are in bold font.}\n")
+cat("\\begin{tabular}{|lllll|}\n")
+cat("\\hline\n")
+cat("{\\bf Topic 1} & {\\bf Topic 2} & {\\bf Topic 3} & {\\bf Topic 4} & {\\bf Topic 5}\\\\\n")
+cat("\\hline\n")
+for(i in 1:20){
+   for(j in 1:4){
+      if(top20[i,j] %in% dups) cat("{\\bf ")
+      cat(top20[i,j])
+      if(top20[i,j] %in% dups) cat("}")
+      cat(" & ")
+   }
+   if(top20[i,5] %in% dups) cat("{\\bf ")
+   cat(top20[i,5])
+   if(top20[i,5] %in% dups) cat("}")
+   cat('\\\\\n')
+}
+cat("\\hline\n")
+cat("{\\bf Topic 6} & {\\bf Topic 7} & {\\bf Topic 8} & {\\bf Topic 9} & {\\bf Topic 10}\\\\\n")
+cat("\\hline\n")
+for(i in 1:20){
+   for(j in 6:9){
+      if(top20[i,j] %in% dups) cat("{\\bf ")
+      cat(top20[i,j])
+      if(top20[i,j] %in% dups) cat("}")
+      cat(" & ")
+   }
+   if(top20[i,10] %in% dups) cat("{\\bf ")
+   cat(top20[i,10])
+   if(top20[i,10] %in% dups) cat("}")
+   cat('\\\\\n')
+}
+cat("\\hline\n")
+cat("\\end{tabular}\n")
+cat("\\end{table}\n")
+@
+
+We are skeptical of looking at just the top $10$ words of each
+topic and weaving a story about what these correspond to. It is far
+too easy for humans to seek out patterns that agree with their
+biases and ignore things that don't quite fit. Table \ref{table:TMTop20}
+shows the top $20$ words of the same topics. Two things are clear from
+these tables: first and foremost, highlighting some words in bold font,
+no matter what the rule is for this, draws the eye to them and makes
+interpretation more difficult; second, even ignoring this, it is not
+straightforward to assess the meaning of the topics, especially for
+a non-domain expert. The first comment is relevant to Figure
+\ref{fig:qfmodel1heat}. By choosing to only show the top $2$ words
+for each topic, as if this were sufficient summary of the content
+of the topic, we are guilty of over simplification and perhaps of
+inadvertently biasing the interpretation.
+
+Another way to look at the topics is through word clouds. Our view
+of word clouds is that they tend to be eye-candy that confuse as much
+as they illuminate, but they are popular, and with care, can provide
+some indications of what is going on. In Figures \ref{fig:TM10WC6}
+and \ref{fig:TM10WC7}
+we show the word clouds for Topics 6 and 7.
+
+\begin{figure}
+\centering
+<<qfinTMWC6,echo=FALSE,results='hide',dependson=c('qfinTM','qfinTM1fig')>>=
+library(wordcloud)
+set.seed(56325)
+Z <- posterior(model10)$terms[hmTM$colInd,]
+w <- colnames(Z)
+wordcloud(w,Z[6,],max.words=100,random.order=FALSE)
+@
+\caption{\label{fig:TM10WC6}
+Word clouds of the top $100$ words for Topic 6 
+for the 10 topic model of the $2$ class Quantitative 
+Finance data.
+}
+\end{figure}
+
+\begin{figure}
+\centering
+<<qfinTMWC7,echo=FALSE,results='hide',dependson=c('qfinTM','qfinTM1fig')>>=
+library(wordcloud)
+set.seed(56325)
+Z <- posterior(model10)$terms[hmTM$colInd,]
+w <- colnames(Z)
+wordcloud(w,Z[7,],max.words=100,random.order=FALSE)
+@
+\caption{\label{fig:TM10WC7}
+Word clouds of the top $100$ words for Topic 7
+for the 10 topic model of the $2$ class Quantitative 
+Finance data.
+}
+\end{figure}
+
+Do these word clouds provide more (or better) information than the
+list of top $n$ words? We could certainly have augmented the list with
+the weights associated with the words, so the fact that word clouds 
+incorporate this information in font size isn't sufficient argument
+for them. However, some people are visual and will prefer pictures
+like these to tables of words/numbers.
+
+There is a way to hedge against biasing the interpretation of the topics
+that is implemented in the above heatmap (Figure \ref{fig:qfmodel1heat}).
+If one's interpretation of the topics is correct, then one should expect
+that the topics that are close in reality should tend to be close in
+our model. By clustering the topics one gets a sense for whether this
+is true. As we have seen, the closest topics (under the default clustering
+of heatmap) are topics $6$ and $7$, whicha re about probability, randomness
+mathematics and statistics in the case of
+topic $6$, and models, processes, and time
+in the case of topic $7$.
+Similarly, topics $9$ and $10$ are close, and we leave it to the experts
+to decide if this is what one should expect from interpreting
+Tables \ref{table:TMTop10} and \ref{table:TMTop20}.
+
+\subsection{Selecting the Number of Topics}
+
+As we saw above (Figure \ref{fig:qfknn}) there is some reason
+to think that the relevant information for classifying the $2$ class
+Quantitative Finance data can be represented in somewhere between $9$ and $14$
+dimensions. We can use a similar approach to determine the number of topics.
+Alternatively, we can use information theory --
+the Akaike Information Criterion (AIC) -- to determine the proper number
+of topics.\footnote{Code adapted from a post by Noam Ross,
+\url{http://www.noamross.net/blog/2014/8/22/topicmodeling.html}}
+First we generate $k$-topic models for $k\in[2,50]$.
+
+<<qfinTM2,cache=TRUE,tidy=FALSE,dependson='topicsTM'>>=
+
+burnin <- 1000
+iter <- 1000
+keep <- 50
+ks <- seq(2, 50, by = 1)
+set.seed(12345)
+
+models <- lapply(ks, function(k) {
+        LDA(dtmQF.Tf, k, method = "Gibbs", 
+            control = list(burnin = burnin, iter = iter, keep = keep))
+        })
+@
+
+Then we compute the AIC for these (see Figure \ref{fig:qftmAIC}). 
+The point at which the AIC
+is maximal ($k=\Sexpr{ks[which.max(AIC)]}$) is the ``best''
+choice for topics.
+
+<<qfinTM3,cache=TRUE,tidy=FALSE,dependson='qfinTM2'>>=
+library(Rmpfr)
+
+harmonicMean <- function(logLikelihoods, precision = 2000L) {
+  llMed <- median(logLikelihoods) 
+  as.double(llMed - 
+            log(mean(exp(-mpfr(logLikelihoods, 
+               prec = precision) + llMed))))
+}
+
+AIC <- unlist(lapply(models,function(model){
+              loglike <- model@logLiks[-c(1:(burnin/keep))]
+              k <- length(model@beta)+length(model@gamma)
+              2*harmonicMean(loglike)-2*k
+           }))
+@
+
+\begin{figure}
+\centering
+<<qfinAICfig,echo=FALSE,echo=FALSE,results='hide',dependson='qfinTM3'>>=
+plot(ks,AIC,type='l',xlab="# Topics",ylab='AIC')
+abline(v=ks[which.max(AIC)],lty=2)
+@
+\caption{\label{fig:qftmAIC}
+AIC method for selecting the number of topics for the topic model
+on the $2$ class Quantiative Finance data.
+The maximum AIC value is at \Sexpr{ks[which.max(AIC)]} Topics.
+}
+\end{figure}
+
+Perusing the figure shows that the story isn't quite so clear.
+There is a region (from about $k=10$ to about $k=15$) that seems
+to be pretty much flat. Recall that our experiments with $k$-nearest
+neighbors classifiers gave us an answer of somewhere between
+$9$ and $14$. The agreement is pretty amazing, if you think about it.
+
+So, let's assume that $k=\Sexpr{ks[which.max(AIC)]}$ is the ``right''
+answer, and fit a model. We'll increase the burn in and iterations
+to increase the likelihood that the model has converged.
+
+<<qfinModel1,cache=TRUE,tidy=FALSE,dependson=c('topicsTM','qfinTM2')>>=
+set.seed(12345)
+modelTM <- LDA(dtmQF.Tf, k=ks[which.max(AIC)], method = "Gibbs",
+    control = list(burnin = 1000, iter = 5000)) 
+@
+
+Figure \ref{fig:qfmodelAIC1heat} (top) shows the heatmap for this
+model. We have stressed that we should always set the seed prior
+to running any of these models, and one might question whether this
+is really necessary. How much can it matter? Let's find out, by fitting
+another model with the same parameters and a different seed.
+
+<<qfinModel2,cache=TRUE,tidy=FALSE,dependson=c('topicsTM','qfinTM2')>>=
+set.seed(21545)
+modelTM2 <- LDA(dtmQF.Tf, k=ks[which.max(AIC)], method = "Gibbs", 
+    control = list(burnin = 1000, iter = 5000)) 
+@
+
+\begin{figure}
+\centering
+<<qfinModel1fig,echo=FALSE,results='hide',dependson=c('qfinModel1','qfinModel2'),fig.height=3,fig.width=3>>=
+heatmap(posterior(modelTM)$topics,labRow=NA,
+        col=gray((255:0)/255),cexCol=0.75)
+heatmap(posterior(modelTM2)$topics,labRow=NA,
+        col=gray((255:0)/255),cexCol=0.75)
+@
+\caption{\label{fig:qfmodelAIC1heat}
+Heatmap for the model fit with $k=\Sexpr{ks[which.max(AIC)]}$ and
+an initial random seed of $12345$ (top) and one fit with
+an initial random seed of $21545$ (bottom).
+}
+\end{figure}
+
+As we can see in \ref{fig:qfmodelAIC1heat},
+the two models are similar, but they are not identical. We can see
+this another way by using the \texttt{dendextend} package and look
+at how much the document clusters agree. Figure \ref{fig:qfmodel1hclust}
+shows a ``tanglegram'' for these two models. While there are again
+clear similarities between these models, there are differences, and
+it's important to understand that running the code multiple times with
+multiple seeds will result in slightly different models.
+
+<<qfindists,echo=TRUE,cache=TRUE,results='hide',dependson=c('qfinModel1','qfinModel2')>>=
+D1 <- distHellinger(posterior(modelTM)$topics)
+D2 <- distHellinger(posterior(modelTM2)$topics)
+h1 <- as.dendrogram(hclust(as.dist(D1)),method='ward')
+h2 <- as.dendrogram(hclust(as.dist(D2)),method='ward')
+@
+
+\begin{figure}
+\centering
+<<qfintanglefig,echo=FALSE,results='hide',out.width="4in",out.height="4in",dependson='qfindists'>>=
+ library(dendextend)
+ tanglegram(h1,h2,leaflab='none',sort=TRUE,lwd=1)
+@
+\caption{\label{fig:qfmodel1hclust}
+Tanglegram for the two models fit with different seeds. This tanglegram
+compares the document clustering in the first model to the document clustering
+in the second.
+}
+\end{figure}
+
+The tanglegram of Figure \ref{fig:qfmodel1hclust} may be a bit tricky to
+interpret, so let's take a different look at the models. Here we are
+asking whether the topics are the same in the two models, so we cluster
+them. If the topics pair up, then that is evidence that they are essentially
+the same model.
+
+<<qfindists2,echo=TRUE,cache=TRUE,results='hide',tidy=FALSE,dependson=c('qfinModel1','qfinModel2')>>=
+Dterms <- distHellinger(rbind(posterior(modelTM)$terms,
+     posterior(modelTM2)$terms))
+hterms <- hclust(as.dist(Dterms))
+@
+
+Figure \ref{fig:qfmodel2hclust} shows the clustering of the topics
+of the two models. With the exception of one topic from each cluster,
+these pair up, with each pair consisting of a topic from each of the
+models. This is strong evidence that the two models are ``the same''
+in some sense.
+
+\begin{figure}
+\centering
+<<qfintermsfig,echo=FALSE,results='hide',out.width="4in",out.height="4in",dependson='qfindists2'>>=
+ k <- ks[which.max(AIC)]
+ plot(hterms,labels=c(letters[1:k],LETTERS[1:k]),main="",sub="")
+@
+\caption{\label{fig:qfmodel2hclust}
+Clustering of the topics from the two clusters. The first topic's
+clusters are labeled with lower case letters, those of the second with
+uppercase letters.
+}
+\end{figure}
+
+And yet, the tanglegram in Figure \ref{fig:qfmodel1hclust} is kind of
+messy, and the heat maps in Figure \ref{fig:qfmodelAIC1heat} are a bit
+different. Then there are those two ``dangling'' topics in
+Figure \ref{fig:qfmodel2hclust}. There are clearly differences in
+the models. To see this further, look at the two topics labeled ``m''
+and ``M'' in the Figure. They are clearly ``the same'' topic as a human
+might assess them, but they are subtly different.
+
+<<qfincomp,cache=TRUE,tidy=FALSE,echo=c(3:6),dependson=c('qfinModel1','qfinModel2')>>=
+w <- options("width")
+options(width=60)
+top1 <- terms(modelTM,10)
+top2 <- terms(modelTM2,10)
+top1[,13]
+top2[,13]
+options(width=w$width)
+@
+
+This of course brings up the question: does this matter? Are the differences
+substantive, or merely random variations of no inferencial impact? In either
+case, is there something we can do to mitigate any issues resulting
+from this variance? One answer is to ``average'' the models, and we will
+look at this in the next section.
+
+Note also that we have been pretty free with the ``iter'' variable which
+controls the number of iterations in the Gibbs sampling. Intuitively, we want
+this to be large, since we want the fit to ``converge'' and be as ``good''
+as possible. However, more iterations take time, and one might wonder just
+how many does one need. As we shall see, in the case we are looking at
+in this chapter, a very simple type of model averaging allows us to use
+a relatively small number of iterations for several models, and obtain
+superior performance as compared to a single model with far more iterations.
+
+\subsection{Model Averaging}
+There are several things that one might mean by ``model averaging'',
+and there are a number of approaches that one might take for each.
+In this section we will look at a very simple kind of model averaging,
+aimed at improving classifier performance on the $2$ class Quantitative
+Finance data.
+
+We would like to compare topic models, and the averaged version that
+we will discuss shortly, with the LSI cosine dissimilarity approach.
+Recall that the idea was to take the term-document matrix, use cosine
+dissimilarity to compute a dissimilarity matrix, then perform inference
+on this matrix. We considered embedding the data into a lower dimensional
+space, but let's remove the variable of embedding dimension
+from consideration. Given an interpoint distance matrix, there are a
+number of classifiers one can define that operate directly on this
+matrix, and for simplicity we'll consider just one, the nearest neighbor
+classifier.
+
+We want to compare LSI to topic models, and we want to average
+the topic models in a reasonable way. So, we will compute
+a dissimilarity matrix for the LSI mode, then use the same dissimilarity
+for the topic models for various numbers of topics. Since running
+the topic model with a different seed produces a (slightly) different
+model and hence a (slightly) different dissimilarity model, we can
+average these dissimilarities for each fixed number of topics.
+Further, we can also average all the dissimilarities across all topics!
+This (if it works!) would allow us to avoid having to choose the 
+model complexity.
+
+Another note is that if we are going to be running a bunch of
+topic models, it would be nice if we could do these fast, so
+we will only run a few iterations. As we will see, this 
+will actually produce performance that is better than running
+a single model for longer (and the reader can check that it is
+also better than running a single model for the same smaller
+number of iterations).
+
+Below is the code that will run the simulations. Note that
+we have used Hellinger distance instead of cosine, and so
+in order to keep our comparisons as valid as possible, we
+use this distance throughout. We will run a bunch of ``quick''
+topic models (burn in and number of iterations both 100)
+and these will be averaged. For comparison, we will run a
+single ``slow''
+topic model with burn in and iterations both set to 2000.
+We will compare the errors of the single ``slow'' model
+to those of the averaged ``quick'' models, an overall averaged
+model, and LSI.
+
+In the code below:
+\begin{itemize}
+\item {\emph D} will contain the average of all the topic model
+dissimilarities.
+\item {\emph errors1model} will be a vector 
+containing the nearest neighbor errors for
+the single topic model run with a burn in of 2000 and 2000 iterations.
+Each element corresponds to a different value for the number of topics.
+\item {\emph errors1} will contain the matrix of the 
+nearest neighbor errors for
+all the topic models run with a burn in of 100 and 100 iterations.
+\item {\emph avg.errors} is the error of the averaged topic models.
+Each element is the error for a given choice of the number of topics, with
+the models averaged over all the runs.
+\item {\emph all.error} is the nearest neighbor error using the average
+dissimilarity computed with all runs and all topic numbers.
+\item {\emph lsi.error} is the error using the LSI approach.
+\end{itemize}
+
+<<qfinTM4,cache=TRUE,tidy=FALSE,dependson='topicsTM'>>=
+
+maxTopics <- 50
+nRuns <- 20
+D <- matrix(0,nrow=nrow(dtmQF.Tf),ncol=nrow(dtmQF.Tf))
+avg.errors <- rep(NA,maxTopics)
+errors1model <- rep(NA,maxTopics)
+errors1 <- matrix(0,nrow=nRuns,ncol=maxTopics)
+for(k in 2:maxTopics){
+   Dk <- matrix(0,nrow=nrow(dtmQF.Tf),ncol=nrow(dtmQF.Tf))
+   for(n in 1:nRuns){
+      set.seed(k+n)
+      model <- LDA(dtmQF.Tf,k,method="Gibbs",
+                   control = list(burnin=100,iter=100))
+      D1 <- distHellinger(posterior(model)$topics)
+      Dk <- Dk+D1
+      diag(D1) <- Inf
+      ests <- apply(D1,1,which.min)
+      errors1[n,k] <- sum(classes[ests] != classes)/length(classes)
+      D <- D+Dk
+   }
+   diag(Dk) <- Inf
+   ests <- apply(Dk,1,which.min)
+   avg.errors[k] <- sum(classes[ests] != classes)/length(classes)
+   model <- LDA(dtmQF.Tf,k,method="Gibbs",
+                control = list(burnin=2000,iter=2000))
+   D1 <- distHellinger(posterior(model)$topics)
+   diag(D1) <- Inf
+   ests <- apply(D1,1,which.min)
+   errors1model[k] <- sum(classes[ests] != classes)/length(classes)
+}
+diag(D) <- Inf
+ests <- apply(D,1,which.min)
+all.error <- sum(classes[ests] != classes)/length(classes)
+DLSI <- as.matrix(dissimilarity(dtmQF.Tf,method='Hellinger'))
+diag(DLSI) <- Inf
+ests <- apply(DLSI,1,which.min)
+lsi.error <- sum(classes[ests] != classes)/length(classes)
+@
+
+\begin{figure}
+\centering
+<<qfinModelAve,echo=FALSE,results='hide',dependson='qfinTM4'>>=
+errors1 <- errors1[,-1]
+avg.errors <- avg.errors[-1]
+errors1model <- errors1model[-1]
+boxplot(errors1,axes=FALSE,
+        ylim=c(0,max(c(errors1model,avg.errors,errors1),na.rm=TRUE)),
+        #border=2,
+        col=gray(0.8),
+        xlab="Number of Topics",
+        ylab="Nearest Neighbor Probability of Error")
+axis(1,at=c(2,(1:10)*5),labels=TRUE)
+axis(2)
+box()
+#plot(0,type='n',ylim=c(0,max(errors1,na.rm=TRUE)),xlim=c(2,maxTopics),
+#     pch=20,col=qf.colors,
+#     xlab="Number of Topics",
+#     ylab="Nearest Neighbor Probability of Error")
+lines(avg.errors,lwd=2)
+lines(errors1model,col=2,lwd=2)
+abline(h=all.error,lty=2,lwd=2)
+abline(h=lsi.error,lty=2,col=2,lwd=2)
+legend(3.5,0.1,
+       c(paste("Averaged",nRuns,"k-Topic Models"),
+         "One Model",
+         paste("Average All",nRuns*(maxTopics-1),"Models"),
+         "LSI"),
+       col=c(1:2,1:2),
+       ncol=2,lwd=2,
+       lty=rep(1:2,each=2))
+@
+\caption{\label{fig:qfmodelave}
+Results of model averaging. The boxes correspond to the ``quick'' models,
+each one containing \Sexpr{nRuns} random starts. The red curve corresponds
+to the ``slow'' model. The dotted lines are the full model average over
+all runs and all topics (black) and the LSI model, computed directly
+off the word frequencies (red).
+}
+\end{figure}
+
+%\section{Regression}

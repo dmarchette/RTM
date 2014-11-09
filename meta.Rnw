@@ -1,0 +1,5 @@
+\section{Time}
+\section{Graphs}
+\subsection{Co-Authorship}
+\subsection{Citation}
+\section{Spectral Graph Embeddings}

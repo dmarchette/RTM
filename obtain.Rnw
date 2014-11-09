@@ -1,0 +1,299 @@
+\section{Open Archives}
+
+<<nopref,echo=FALSE,results='hide'>>=
+# A Prefix nulling hook.
+# from http://stackoverflow.com/questions/22524822/how-can-i-remove-the-prefix-index-indicator-1-in-knitr-output
+
+# Make sure to keep the default for normal processing.
+default_output_hook <- knitr::knit_hooks$get("output")
+
+# Output hooks handle normal R console output.
+knitr::knit_hooks$set( output = function(x, options) {
+
+  comment <- knitr::opts_current$get("comment")
+  if( is.na(comment) ) comment <- ""
+  can_nullit <- grepl( paste0( comment, "\\s*\\[\\d?\\]" ),
+                     x, perl = TRUE)
+  do_nullit <- isTRUE( knitr::opts_current$get("no_pref") )
+  if( can_nullit && do_nullit ) {
+    # By default R print output aligns at the right brace.
+    align_index <- regexpr( "\\]", x )[1] - 1
+    # Two cases: start or newline
+    re <- paste0( "^.{", align_index, "}\\]")
+    rep <- comment
+    x <- gsub( re, rep,  x )
+    re <- paste0( "\\\n.{", align_index, "}\\]")
+    rep <- paste0( "\n", comment )
+    x <- gsub( re, rep,  x )
+  }
+
+  default_output_hook( x, options )
+
+})
+
+knitr::opts_template$set("kill_pref"=list(comment=NA, no_pref=TRUE))
+@
+
+Open archives (\url{www.openarchives.org})
+provide access to a huge number of document archives.
+Check out \url{http://www.openarchives.org/Register/BrowseSites/}
+for a list of registered data providers. 
+
+One very nice repository for scientific article data is arXiv
+(\url{arxiv.org}). Here's how to
+use the OAIHarvester package to obtain a document set from arXiv.
+First, we get a list of the available data sets.
+
+<<qfin,cache=TRUE,tidy=FALSE>>=
+library(OAIHarvester)
+library(XML)
+baseurl <- "http://export.arxiv.org/oai2"
+x <- oaih_list_sets(baseurl)
+x[,1:2]
+@
+
+Now we download the document meta data using \texttt{oaih\_list\_records}.
+For a reasonable sized document set, consider the subject
+``Quantitative Finance'' from the arxiv repository:
+
+<<qfin2,cache=TRUE,echo=2:3,tidy=FALSE>>=
+d <- Sys.time()
+x <- oaih_list_records(baseurl,set="q-fin")
+arXivQFin <- oaih_transform(x[,"metadata"])
+save(arXivQFin,file='Data/arqfin.RData')
+@
+
+There are \Sexpr{nrow(arXivQFin)} documents (as 
+of \Sexpr{format(d,"%B %d, %Y")} -- the collection grows, of course, so you'll
+get more when you run the above code).
+
+The information returned for these documents is:
+<<setoptsT1,results='hide',echo=FALSE>>=
+w <- options("width")
+options(width=60)
+@
+
+<<qfin3,cache=TRUE,tidy=FALSE>>=
+colnames(arXivQFin)
+@
+
+Now, consider just those articles with the phrase
+``Quantitative Finance'' in their
+subjects:
+
+<<qfin4,cache=TRUE,tidy=FALSE,echo=1:6>>=
+a <- unlist(lapply(arXivQFin[,"subject"],function(x) 
+                           length(grep("Quantitative Finance",x))))
+b <- which(a==1)
+qf <- arXivQFin[b,]
+qf.primary <- unlist(lapply(qf[,"subject"],function(x) 
+                          x[grep("Quantitative Finance",x)]))
+qf.primary <- gsub("Quantitative Finance - ","",
+                   qf.primary)
+table(qf.primary)
+save(arXivQFin,qf,qf.primary,file='Data/arqfin.RData')
+@
+
+This reduces the set of documents to \Sexpr{length(qf.primary)}, with
+the above table of primary subjects.
+
+<<qfinsave,results='hide',echo=FALSE>>=
+if(!file.exists("Data/arqfin.RData"))
+	save(arXivQFin,qf,qf.primary,file="Data/arqfin.RData")
+@
+<<unsetoptsT1,results='hide',echo=FALSE>>=
+options(width=w$width)
+@
+
+
+\section{Searching PubMed}
+There are many ways to get data from PubMed. One method uses
+the \texttt{RISmed} package.
+<<pmEbola,echo=1:5,tidy=FALSE>>=
+library(RISmed)
+ebolaSummary <- EUtilsSummary('ebola hemorrhagic',
+   type='esearch',db='pubmed')
+summary(ebolaSummary)
+ebolaDocs <- EUtilsGet(ebolaSummary,
+   type='efetch',db='pubmed')
+Author(ebolaDocs)[[1]]
+ArticleTitle(ebolaDocs)[[1]]
+save(ebolaDocs,ebolaSummary,file="Data/ebola.RData")
+eday <- Sys.time()
+@
+\begin{figure}
+<<pmEbolaFig,echo=FALSE,fig.width=4,fig.height=4,results='hide'>>=
+y <- Year(ebolaDocs)
+barplot(table(y),las=2,ylab="# Articles",cex.names=0.75)
+@
+\caption{\label{fig:ebolaPM}
+Number of Ebola articles in PubMed per year.
+Data collected on \Sexpr{format(eday,"%B %d, %Y")}.
+}
+\end{figure}
+
+The abstracts can be extracted using \texttt{AbstractText}.
+To see what fields are accessible from the data, we can
+list them:
+
+<<ebolaList,echo=TRUE>>=
+slotNames(ebolaDocs)
+@
+
+Note that there is a limit to the amount of data that can be
+downloaded at one time. In order to avoid over taxing the server
+(and risk being temporarily blocked) one should limit the
+number of queries, and schedule larger requests for weekends
+or nights (Eastern time).
+
+\section{RSS feed examples: Google news and others}
+
+Obtaining data from an RSS feed is simply using the XML package.
+
+For example, consider the Ars Mathematica blog, 
+\url{http://www.arsmathematica.net/}.
+We can download the data from this feed using \texttt{xmlParse}:
+
+<<ars,cache=TRUE,echo=1:4,tidy=FALSE>>=
+  doc <- xmlParse("http://www.arsmathematica.net/?feed=rss2")
+  titles <- xpathSApply(xmlRoot(doc),"//item/title",
+                        xmlValue)
+  descriptions <- xpathSApply(xmlRoot(doc),"//item/description",
+                        xmlValue)
+  contents <- xpathSApply(xmlRoot(doc),"//item/content:encoded",
+                        xmlValue)
+  save(doc,titles,descriptions,contents,file='Data/arsmath.RData')
+@
+
+<<arsout,echo=3:6,tidy=FALSE,no_pref=TRUE>>=
+  w <- options("width")
+  options(width=60)
+  strwrap(titles[[1]])
+  strwrap(contents[[1]])
+  # A bit of trivial cleaning
+  strwrap(gsub("<.*?>", "",contents[[1]]))
+  options(width=w$width)
+@
+
+Obtaining Google News, or any other RSS feed, is done the same way.
+In this case we'll grab the Science news.
+
+<<googlenews,cache=TRUE,echo=TRUE,tidy=FALSE>>=
+gnURL <- 
+  "http://news.google.com/news?pz=1&cf=all&ned=us&hl=en&topic=snc&output=rss"
+doc <- xmlParse(gnURL)
+titles <- xpathSApply(xmlRoot(doc),"//item/title",
+                        xmlValue)
+titles[7]
+@
+
+As with all RSS feeds, one obtains the most recent 
+articles. In order to obtain a larger collection, one must 
+either set up a script to check the server periodically (and
+remove duplicates) or find an archive of the data one is interested in,
+and download that.
+
+
+\section{Other examples}
+
+Data can be obtained from the web using the \texttt{download.file}
+function. This allows us to specify the URL of the file, and download it
+into a local file. 
+
+Here is an example using Project Gutenberg. First, let's get the
+index, and look through it for something interesting:
+<<gutenberg,cache=TRUE,tidy=FALSE>>=
+download.file("http://www.gutenberg.org/dirs/GUTINDEX.ALL",
+              destfile="Data/gutenberg.txt")
+gt <- readLines("Data/gutenberg.txt")
+gsub("\\s+"," ",
+	gt[grep("Complete Works of William Shakespeare",gt)])
+@
+
+Now let's get the works of Shakespeare.\footnote{This
+example is borrowed (with a few minor modifications) from 
+\url{http://www.r-bloggers.com/text-mining-the-complete-works-of-william-shakespeare/}.}
+After a small amount of experimenting, we can determine the
+filename, and download the file.
+
+<<shakespeare,cache=TRUE,tidy=FALSE>>=
+download.file("http://www.gutenberg.org/files/100/100.txt", 
+              destfile = "Data/shakespeare.txt")
+## Read the data in and make a single character string
+txt <- readLines("Data/shakespeare.txt")
+dates <- grep("^1[56][[:digit:]][[:digit:]]",txt)
+titles <- rep('',length(dates))
+## The titles follow one to five blank lines
+for(i in 1:length(dates)){
+   for(j in 1:6){
+      if(nchar(txt[dates[i]+j])>3){
+         titles[i] <- txt[dates[i]+j]
+         break
+      }
+   }
+}
+dates <- as.numeric(txt[dates])
+txt <- paste(txt,collapse=' ')
+## split on the "<<" marking sections
+works <- unlist(strsplit(txt,"<<[^>]*>>"))
+## remove the head and tail
+shakespeare <- works[-c(1,2,length(works))]
+@
+Note that Project Gutenberg does not allow bulk downloads. Getting data
+this way is fine for one document now and then, but do not try to obtain
+dozens of books this way.
+
+After the above processing, we have \Sexpr{length(shakespeare)} documents.
+Now let's assign class labels to these documents
+(each act becomes the same class as the associated play).
+
+<<dpclass,tidy=FALSE,echo=1:2>>=
+a <- diff(grep("1[56][[:digit:]]+",shakespeare))
+shakespeare.class <- rep(1:length(titles),
+                        times=c(a,1))
+save(shakespeare,titles,dates,shakespeare.class,file="Data/shakespeare.RData")
+@
+
+Some simple text processing to look at the documents:
+
+<<shakeprocess,cache=TRUE,tidy=FALSE>>=
+library(proxy)
+
+## get the words from each document
+docs <- gsub("[[:punct:]]|\\d"," ",shakespeare)
+words <- strsplit(tolower(docs),split=" ")
+
+## remove 1 and 2 character words
+words <- lapply(words,function(x) x[nchar(x)>2])
+
+## define the lexicon
+lexicon <- sort(unique(unlist(words)))
+
+## count the words
+n <- length(docs)
+out <- matrix(0,nrow=n,ncol=length(lexicon))
+for(i in 1:n){
+   count <- table(words[[i]])
+   out[i,which(lexicon %in% names(count))] <- count
+}
+
+## remove any words occuring in fewer than 3 documents
+out <- out[,which(apply(out,2,function(x) sum(x>1))>3)]
+
+D <- dist(out,method='cosine')
+X <- cmdscale(D)
+@
+
+\begin{figure}
+<<shakepict,echo=FALSE,results='hide'>>=
+plot(X,type='n',xlab=expression(X[1]),ylab=expression(X[2]))
+text(X,labels=shakespeare.class,cex=.75)
+@
+\caption{\label{fig:shakespeare}
+Plot of the Complete Words of Shakespeare. 
+The document labeled $1$ contains the sonnets, each other
+number represents
+an act from one of the plays, with each play numbered consecutively
+(as they appear in the original file).
+}
+\end{figure}

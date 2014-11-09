@@ -1,0 +1,11 @@
+
+\section{POS tagging and open source taggers}
+\section{More Advaced Stemming}
+\section{WordNet}
+\section{Sentiment}
+\section{Summarization}
+\section{Keyword Extraction}
+\section{Language identification}
+\section{Translation}
+\section{Author ID}
+

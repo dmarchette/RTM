@@ -1,0 +1,234 @@
+%\usepackage{hyperref}
+%\usepackage{fullpage}
+%\usepackage{amsmath}
+%\usepackage{amscd}
+%\usepackage[tableposition=top]{caption}
+%\usepackage{ifthen}
+%\usepackage[utf8]{inputenc}
+
+
+\section{Introductory Example}
+
+
+%<<echo=FALSE,results='hide'>>=
+%rm(list=ls())
+%gc()
+%@
+%
+
+We will start with a toy example and cover some basics, in both data processing and statistical techniques. 
+By data processing, we mean all the work that goes into representing text documents as vectors. 
+In this section, we will consider statistical techniques that operate on the pair-wise distances between 
+those vectors. We examine methods of dimensionality reduction and clustering on those distances: multi-dimensional scaling and hierarchical clustering. 
+
+
+To get started on this toy example, we will use documents from the Reuters corpus in two categories, ``acquisitions'' and ``crude''. The category ``acquisitions'' consists of 50 news articles about corporate acquisitions while the category ``crude'' consists of 20 articles about crude oil. These documents are provided with the \verb@tm@ library. We can load them with the following commands, making the variable \verb@docs@, which is a list with the aquisitions documents followed by the crude oil documents. 
+
+<<getdata>>=
+library(tm)
+
+data(acq)
+data(crude)
+docs <- c(acq,crude)
+typeof(docs)
+docs
+@
+
+The \verb@docs@ list contains each document, [METADATA? etc]. WHEN DOES IT CONTAIN METADATA? 
+
+We can view the text of each document by accessing the list element corresponding to the document. For example, the sixth document is
+
+<<>>=
+docs[[6]]
+@
+
+We know that the sixth document was an acquisitions document, from the way we formed the \verb@docs@ list. Similarly, a crude oil document is
+
+<<>>=
+docs[[70]]
+@
+	
+In order to represent these documents as mathematical objects, we will use the bag-of-words or vector space model. This model represents each document by a vector in a high-dimensional space with each dimension corresponding to a different word in the lexicon. The vector values are proportional to the number of times the word is in the document, often weighted by the ``importance'' of the word, which we will explain soon. The name ``bag-of-words'' model reflects the fact that word order does not affect the vector representation. Each document is treated as if all the words were cut (between spaces) and placed in a bag. There is no way to differentiate between documents containing the same words with the same frequency but in different order. Still, this simple model allows for an easy representation of the documents as vectors and can be used for finding similarities and differences between documents in a corpus. 
+
+\vspace{.2in}
+[PICTURE HERE] 
+\vspace{.2in}
+
+In this section we will use the R package \verb@tm@ to turn the documents into a word count matrix where each row corresponds to a document and each column to a word in the lexicon. The matrix entries are equal to the number of times the word occurs in the document. In Section REF, we will create this matrix ourselves without using external packages. But in this section we will quickly obtain the matrix using the function \verb@DocumentTermMatrix@ from the \verb@tm@ package. We will use this function called without stemming, since it can be difficult to load the package that performs the stemming. We'll look at stemming in Section REF.   
+
+
+<<makeDTM,tidy=FALSE>>=
+dtm <- DocumentTermMatrix(docs,
+          control=list(stemming=FALSE,
+            stopwords=TRUE,
+            minWordLength=3,
+            removeNumbers=TRUE,
+            removePunctuation=TRUE,
+            removeQuotes=TRUE))       
+typeof(dtm)
+dtm
+@
+
+The \verb@tm@ representation is MORE HERE. We can cast it as a matrix with the following. 
+
+<<>>=
+TF <- as.matrix(dtm)
+n <- nrow(TF)
+v <- ncol(dtm)
+@                          
+
+We have $n$ documents and $v$ unique words in the lexicon. Now we wish to weight the words as described above. We will use the \textbf{term frequency inverse document frequency} weighting. This weights each term-document count by an amount inversely proportional to the probability of the word occuring in a document in the corpus. 
+
+Let $b_w$ be the number of documents in the corpus in which word $w$ appears. Then $\frac{n}{b_w}$ is the inverse of the probability word $w$ appears in any document in the corpus. Since the word would not be in our lexicon unless it was in at least one document in the corpus, we know that the upper bound on $\frac{n}{b_w}$ is $\frac{n}{1} = n$. Similarly, the lower bound is $\frac{n}{n}=1$. That is, $\frac{n}{b_w} \in [1,n]$. 
+
+The TFIDF weighting multiplies the word counts by the $\log$ of the inverse document frequency for each word. So for every word in the lexicon we have a value $\log(IDF_w)$. For word $j$ in document $i$, the TFIDF value is  
+
+\begin{equation}
+TFIDF_{i,j} = TF_{i,j} * \log(IDF_j) = TF_{i,j} * \log(\frac{n}{b_j}). 
+\end{equation}
+
+Consider a word that occurs in \emph{every} document, such as the word ``the''. It will have a $\log(IDF)$ value of $log(\frac{n}{n}) = \log(1) = 0$. So regardless of the number of times it occurs in a particular document, its vector value will be 0. At the other extreme, consider a word that only occurs in one document. Its $\log(IDF)$ value will be $\log(\frac{n}{1})$ and so its TFIDF value will be multiplied by $\log(n)$, which will be more significant as the corpus size increases (since it would be even more unusual to have been in only one document). Now we will create a TFIDF matrix in the following piece of code. 
+                          
+<<makeTFIDF>>=
+bw <- apply(TF,2,function(x){sum(x>0)})
+logIDF <- n/bw
+TFIDF <- TF * logIDF
+@
+
+(Note than we can use the \verb@tm@ package to weight the words by TFIDF, but the above code and explanation is given to explain what that weighting means.)
+
+Now we will normalize the rows of the TFIDF matrix so that each has unit length. We do this to make it easier to find distances between documents in the next section. To normalize, we can do
+
+<<makeTFIDFnorm>>=
+TFIDFnorm <- TFIDF
+for(i in 1:n)
+{
+  len <- sqrt(sum(TFIDF[i,]^2))
+  if(len>0)
+  {
+    TFIDFnorm[i,] <- TFIDF[i,]/len	
+  }
+}
+@
+	
+	
+Now we have a matrix \texttt{TFIDFnorm} that is 70 $\times$ 1922, with each row equal to the unit length TFIDF vector for a document in the corpus. (Note that your matrix may have more or less columns depending on how you called the function \verb@DocumentTermMatrix@ from \verb@tm@ or possibly depending on your version of R or \verb@tm@.) 
+
+The next thing we wish to do is to find the distance between documents. We now have documents as vectors in $R^{+v}$, a v-dimensional space with values in $[0,1]$, and we wish to measure a distance between them. We could use the Euclidean distance, but there are several reasons not to use this distance. EXPLAIN (later maybe). 
+
+A common distance is the cosine distance, which comes from the cosine similarity. Cosine similarity refers to the angle between vectors. Remember that for vectors $x$ and $y$, the angle between them is 
+\begin{equation}
+cos(x,y) = \frac{x \cdot y}{||x|| ||y||}.
+\end{equation} 
+Since all our vectors are in $R^{+v}$, the cosine between any two will be in $[0,1]$. For vectors with a small angle between them, this value is close to 1 while for orthogonal vectors the value is zero. This measures a similarity between vectors, which we can turn into a distance by using $1 - cos(x,y)$. The cosine distance will also be between (0,1) with zero for vectors lying on the same line (regardless of the length of the vectors) and one for orthogonal vectors (from documents that share no words). In Section REF we will look at better ways to construct this dissimilarity.
+
+\vspace{.2in}
+[PICTURE HERE]
+\vspace{.2in}
+
+LATER (other chapter maybe) talk about dimensionality and the average of the cosine between vectors approaching 1 as the dimensionality increases. 
+
+Since our vectors have been normalized to have unit length, we have $cos(x,y)  = x \cdot y$. To get this quickly (more quickly than looping through all pairs of documents), we can do the following
+	
+<<makeCosDis>>=
+cosDis <- 1 - TFIDFnorm %*% t(TFIDFnorm)
+@
+
+This matrix will have zeros on the diagonal. Also, since we ordered our documents so that the 50 aquisition articles were first, followed by the 20 crude articles, we should expect to that there are two blocks of similar articles, represented by blocks with smaller distances. A quick look at the image of the matrix in Figure~\ref{fig:one} shows this. (Note that \verb@image@ shows the reflected transpose of a matrix. Also, we are using a color scheme such that white represents zero distance and black represents the maximal distance of one.)
+
+<<label=fig1plot,include=FALSE,fig.show='hide'>>=
+image(cosDis,col=rev(grey.colors(20)))
+@
+\begin{figure}
+\begin{center}
+<<label=fig1,echo=FALSE>>=
+<<fig1plot>>
+@
+\end{center}
+\caption{Image plot of cosine distance matrix of acq/crude documents}
+\label{fig:one}
+\end{figure}  
+
+
+Since we ordered the documents with the 50 acquisitions documents followed by the 20 crude documents, we can make colors for these labels, which we can use in future plots. We will make an array of length 70 which is 50 one's followed by 20 two's. Since \verb@R@ represents $1$ with black and $2$ with red, we will later use this color variable to plot the acquisitions documents as black points and the crude documents as red points. 
+
+<<>>=
+docCol <- rep(c(1,2),times=c(length(acq),length(crude)))
+@
+
+We can also make document titles from the first three words of each document and assign those to the row names of the cosine distance matrix. We will use this later for plotting the results of heirarchical clustering. 
+
+<<>>=
+docTitles <- rep("",n)
+for(i in 1:n)
+{
+  splitWords <- unlist(strsplit(docs[[i]]," "))
+  docTitles[i] <- paste(splitWords[1:3],collapse=" ")	
+}
+rownames(cosDis) <- docTitles
+@
+
+
+Once we have this distance matrix we can apply any techniques for dimensionality reduction or clustering that operate on a distance matrix. We discuss these techniques in depth in chapter REF, but here we'll just touch on them. We'll start with dimensionality reduction, using multidimensional scaling (MDS) to map the documents in a two-dimensional space. This allows us to represent the 70 documents (which came from a $\Sexpr{ncol(TF)}$-dimensional space) as points such that similar documents are located near each other. Think of this as being asked to lay the 70 documents out on a table in piles by thier subtopics, with similar piles near each other. This would clearly be a daunting task, even with only 70 documents. 
+
+
+Figure~\ref{fig:two} shows the results of using MDS to represent the documents in a two-dimensional layout. Black points represent acquisitions documents and red points represent crude oil documents. We can see that the first dimension almost splits the documents prefectly into two groups, with the acquisitions documents on the left (with values less than zero) and the crude oil documents on the right (with values greater than zero). There is one acquisitions document whos value in the first MDS dimension is greater than zero. The MDS projection results in this layout without knowing anything about the classes (acquisition and crude) assigned to the documents. For this simple corpus of documents about two separate topics, this is not surprising. The surprise is that this underlying structure can be shown using such a simple model to represent the documents. 
+
+
+<<label=fig2plot,include=TRUE,fig.show='hide'>>=
+mds <- cmdscale(cosDis)
+plot(mds,col=docCol)
+abline(v=0)
+points(mds,col=docCol)
+@
+\begin{figure}
+\begin{center}
+<<label=fig2,echo=FALSE>>=
+<<fig2plot>>
+@
+\end{center}
+\caption{MDS plot of cosine distance matrix of acq/crude documents. The black points are acquisitions documents are the red points are crude oil documents. The first dimension of the MDS projection almost perfectly separates the documents into the two classes.}
+\label{fig:two}
+\end{figure}
+
+%We can add our three word titles to the plot to get an idea of which points represent which documents in the corpus. 
+%Figure~\ref{fig:MDStitles} shows the titles for all documents with the first projection dimension greater than zero. We see
+%that the document ``Union Carbide Corp'' and ``Houston Oil Trust'' are those closest MORE???   
+%
+%<<label=figMDStitles,include=TRUE,fig.show='hide'>>=
+%plot(mds,col=docCol)
+%abline(v=0)
+%points(mds,col=docCol)
+%w <- which(mds[,1]>0)
+%text(mds[w,],rownames(cosDis)[w],pos=4,col=docCol[w],cex=.7)
+%@
+%\begin{figure}
+%\begin{center}
+%<<label=figMDStitles,echo=FALSE>>=
+%<<figMDStitles>>
+%@
+%\end{center}
+%\caption{MDS with titles}
+%\label{fig:MDStitles}
+%\end{figure}
+
+Another technique that can be applied to a distance matrix is heirarchical clustering. Heirarchical clustering assigns data points to a cluster if they are within some threshold of ``closeness'' to each other or to an existing cluster. We discuss this in detail in Section REF, but quickly use it here on our toy corpus. Figure~\ref{fig:hclust} shows the results of heirarchical clustering on the cosine distance matrix. The figure shows the heirarchical clustering dendrogram with our three-word document titles used to label the documents. If we wanted to separate the documents into two clusters, we would cut the dendrogram by passing a horizontal line through the plot intersecting two verticle lines (the gray line in Figure~\ref{fig:hclust}). This separates the dendrogram into two clusters as if we cut a cluster of grapes this way. The left-most documents make one cluster of fourteen crude oil documents. The right-most cluster contains the most documents, with all fifty acquisitions documents and six crude oil documents. Just like MDS, heirarchical clustering has separated these documents into their classes without any knowledge of those classes. 
+
+
+<<label=hclustPlot,fig.width=8,fig.height=4,include=FALSE,fig.show='hide',echo=1:3>>=
+hcl <- hclust(as.dist(cosDis),method="ward")
+plot(hcl,hang=-1,cex=.6)
+points(1:n,y=rep(0,n),col=docCol[hcl$order],pch=19,cex=.5)
+abline(h=2.25,col=8)
+@
+\begin{figure}
+\begin{center}
+<<label=hclust,echo=FALSE>>=
+<<hclustPlot>>
+@
+\end{center}
+\caption{hclust plot of cosine distance matrix of acq/crude documents}
+\label{fig:hclust}
+\end{figure}
+
+
