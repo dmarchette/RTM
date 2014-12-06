@@ -57,7 +57,7 @@
 \chapter{Basic Statistics}\label{chapt:basic}
 \include{basic}
 
-\chapter{Statistical Text Processing Fundamentals}\label{chapt:stats}
+%\chapter{Statistical Text Processing Fundamentals}\label{chapt:stats}
 \include{stats}
 
 \chapter{Text Classification}\label{chapt:class}

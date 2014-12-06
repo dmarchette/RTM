@@ -7,5 +7,6 @@
 \section{Keyword Extraction}
 \section{Language identification}
 \section{Translation}
+\subsection{Fusion: Implicit Translation}
 \section{Author ID}
 

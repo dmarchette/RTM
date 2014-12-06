@@ -1,3 +1,4 @@
+\section{Bag-Of-Words}
 \section{Vector space model}
 
 A vector space representation of a corpus of documents calculates a vector
@@ -241,7 +242,7 @@ effects the preformance.
 \section{Concordances, associations}
 \section{Zipf}
 \section{Stop Word Estimation}
-\section{String Manipluation}
-\subsection{Searching}
-\subsection{Regular Expressions}
+%\section{String Manipluation}
+%\subsection{Searching}
+%\subsection{Regular Expressions}
 \section{Distances}

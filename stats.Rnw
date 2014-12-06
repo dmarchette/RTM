@@ -1,3 +1,4 @@
+\chapter{Latent Semantic Analysis}
 \section{Latent Semantic Indexing}
 
 <<lsipackages,echo=FALSE,results='hide'>>=
@@ -320,7 +321,7 @@ inference) and so the ``correct'' embedding for a particular task is likely
 to be less than that found by the profile likelhood method.
 
 
-\subsection{Embedding}
+\section{Embedding}
 
 An alternate approach to the singular value decomposition on the term document matrix, is to
 compute the dissimilarity matrix between the documents (as represented by the vectors
@@ -381,7 +382,7 @@ always true in text corpora)
 the singular value decomposition can (almost always) be implemented even for large corpora,
 and so this approach can be applied to much larger data sets than the dissimilarity approach.
 
-\subsubsection{Shakespeare}
+\subsection{Shakespeare}
 <<shakedata,cache=TRUE,echo=FALSE,return='hide'>>=
 load("Data/shakespeare.RData")
 @
@@ -544,9 +545,10 @@ variable, setting the dictionary to only include stop words. Do you
 come to the same conclusion?
 \end{ExerciseList}
 
-\subsection{Probablistic Latent Semantic Indexing}
+\section{Probablistic Latent Semantic Indexing}
 
-\section{Topic Models}
+\chapter{Topic Models}
+\section{Latent Dirichlet Allocation}
 
 
 <<topicsTM,cache=TRUE,tidy=FALSE,dependson='lsiTM'>>=
@@ -811,7 +813,7 @@ Similarly, topics $9$ and $10$ are close, and we leave it to the experts
 to decide if this is what one should expect from interpreting
 Tables \ref{table:TMTop10} and \ref{table:TMTop20}.
 
-\subsection{Selecting the Number of Topics}
+\section{Selecting the Number of Topics}
 
 As we saw above (Figure \ref{fig:qfknn}) there is some reason
 to think that the relevant information for classifying the $2$ class
@@ -839,7 +841,7 @@ models <- lapply(ks, function(k) {
 
 Then we compute the AIC for these (see Figure \ref{fig:qftmAIC}). 
 The point at which the AIC
-is maximal ($k=\Sexpr{ks[which.max(AIC)]}$) is the ``best''
+is maximal ($k=$\Sexpr{ks[which.max(AIC)]}) is the ``best''
 choice for topics.
 
 <<qfinTM3,cache=TRUE,tidy=FALSE,dependson='qfinTM2'>>=
@@ -1008,7 +1010,7 @@ in this chapter, a very simple type of model averaging allows us to use
 a relatively small number of iterations for several models, and obtain
 superior performance as compared to a single model with far more iterations.
 
-\subsection{Model Averaging}
+\section{Model Averaging}
 There are several things that one might mean by ``model averaging'',
 and there are a number of approaches that one might take for each.
 In this section we will look at a very simple kind of model averaging,
@@ -1157,4 +1159,4 @@ off the word frequencies (red).
 }
 \end{figure}
 
-%\section{Regression}
+\section{Correlated Topic Models}

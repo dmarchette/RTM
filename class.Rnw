@@ -265,10 +265,412 @@ titles[clust$cluster==3]
 titles[clust$cluster==4]
 @
 \section{Classification}
-\subsection{Discriminating and descriptive words}
+The classification problem is as follows: given data $(X,Y)$,
+$X=\{x_1,\ldots,x_n\}\in \mathscr{X}^n$, $Y=\{y_1,\ldots,y_n\}\in \mathscr{Y}^n$,
+referred to as the {\it training data}, where $X$ represents objects
+to be classified and $Y$ corresponds to the class labels associated with
+the objects, the goal is to construct a function
+$g:\mathscr{X}\rightarrow\mathscr{Y}$.
+One typically wants the function to have some optimality criterion,
+for example, we might ask that the error rate
+$P(g(X) != Y)$ be as small as possible. Sometimes one trades-off the different types of
+errors: missing a roadside bomb may cost more than a false alarm,
+however too many false alarms may mean the system will be turned off or ignored.
+
+The {\bf Bayes Error} is the minimum of the criterion, and a {\bf Bayes Classifier}
+is one that obtains the optimum:
+\begin{equation}\label{eqn:bayesclassifier}
+g_{Bayes} = \arg\min\limits_{g} P(g(X)!=Y).
+\end{equation}
+
+Many classifiers are (asymptotically) Bayes optimal. For example, the $k$-nearest
+neighbor classifer, assuming $k$ increases appropriately in $n$, is one such.
+See \cite{devroye:1996,hastie:2011}. One will sometimes refer to these as
+{\it universal} or {\it consistent} classifiers.
+
+Given any choice of classifier (or collection of classifiers) one has the 
+problem of model selection. In the case of a $k$-nearest neighbor classifier,
+the parameter $k$ must be chosen. Also, $n$ is very large, one may wish to select
+a smaller set of ``prototype'' vectors to use with the classifier. 
+
+\begin{figure}
+<<classpict,echo=FALSE,return='hide'>>=
+library(ellipse)
+z <- ellipse(x=c(0,0),centre=c(-2.5,0),scale=c(1,2))
+plot(z,
+     type='l',axes=FALSE,xlab="",ylab="",xlim=c(-5,5),ylim=c(-5,5))
+text(-1,2,labels=expression(widehat(f)),pos=3)
+points(cbind(-1,2),pch=20)
+text(z[83,,drop=FALSE],labels=expression(widetilde(f)),pos=2)
+points(z[83,,drop=FALSE],pch=20)
+text(cbind(4,z[83,2]),labels="f",pos=4)
+points(cbind(4,z[83,2]),pch=20)
+segments(4,z[83,2],z[83,1],z[83,2],lty=2)
+segments(z[83,1],z[83,2],-1,2,lty=2)
+text(-3,2,"Model Space")
+@
+\caption{\label{fig:modelfig}
+Stylized picture of the model selection problem. The space of all models
+under consideration is indicated by the ellipse, with the true function $f$ (almost
+certainly) falling outside this set of models. Within the model space is the 
+model which is closest to the true function (indicated by the $\widetilde{f}$) and
+the actual model that is fit to the data (indicated by the $\widehat{f}$).
+}
+\end{figure}
+Consider the problem of selecting a classifier from some family of models
+for a given set of data.
+The problem of model selection and model fitting is indicated in Figure
+\ref{fig:modelfig} (see \cite{devroye:1996,hastie:2011} for more information).
+No matter what assumptions one makes about the problem, it is almost certain that
+the true classifier is not in the model space, and whether it is or not, the best
+model within the space (the one ``closest'' to the true model in the appropriate
+sense, for example, Bayes error rate) is not the one that is estimated on a given
+training set. So there are two errors, that from the mismatch of the model with the
+truth, and that from the estimation error. In general we 
+can reduce one of these at the expense
+of the other.
+
+One might be tempted to say that by selecting a nonparametric algorithm 
+or consistent (universal) classifier
+(k-nearest
+neighbors, neural networks, random forests or some other fancy classifier) one
+can eliminate the first error altogether. After all, these classifiers can attain
+Bayes error, and thus contain the true model, right?
+
+Well, no. The statement that a classifier is a universal classifier
+is an asymptotic statement. For any finite set of data, any given classifier can only
+produce a finite set of possible solutions.
+
+Consider the following (admittedly contrived) case. Let $n<N$ be fixed.
+Let the data be univariate, two class data, defined on the interval $[0,N]$
+Suppose the data are classified according to the following rule:
+$$
+g(X) =\left\{\begin{array}{cc}
+   0&x\in [2i,2i+1)\\
+   1&x\in [2j-1,2j)\end{array}\right.
+$$
+In other words, if the interval that $x$ 
+falls in starts with an even number, it is class
+$0$, otherwise it is class $1$. Since our training set won't see all possible 
+intervals (because $n<N$),
+we can never learn the true rule. This illustrates two points: given a finite
+set of training observations, there will be regions of the decision space that
+will not be explored.\footnote{This gets much worse as the dimensionality
+(the
+number of features)
+increases.}
+Also, for a finite set of training observations there are
+a finite set of parameters that can be estimated.
+
+There's another issue that the above discussion glosses over, which is particulary
+important for text data mining. A classifier operates on features, which are
+measurements extracted from the ``signal''. In the case of text, one can extract
+word frequencies, apply various weights to these, as discussed above. One can also
+consider bigrams, trigrams, etc. One might use n-grams (sequences of characters rather
+than words). As we will see in Chapter \ref{chapt:nlp}, the bag-of-words model
+is not the only one to consider, one can extract grammar information from the
+text and utilize this in a classifier. The choice of features to extract can
+be critical to the ultimate performance of a classifier.
+
+<<characterclassifier,tidy=FALSE,echo=TRUE,cache=TRUE,dependson='lsiTM'>>=
+library(tm)
+library(class)
+char_tokenizer <- function(x)
+{
+   ch <- unlist(strsplit(x,split=""))
+   ch[ch %in% LETTERS]
+}
+
+inds <- which(qf.primary %in% c("Portfolio Management",
+            "Risk Management"))
+docs <- paste(qf[inds,'title'],qf[inds,'description'])
+classes <- qf.primary[inds]
+
+dtm.char <- DocumentTermMatrix(Corpus(VectorSource(docs)),
+   control=list(tolower=FALSE,
+                tokenizer=char_tokenizer,
+                weighting=weightTf,
+                wordLengths=c(1,1)))
+table(knn.cv(as.matrix(dtm.char),as.factor(classes),
+      k=5),classes)
+@
+
+This classifier, using only the capital letters appearing in the documents,
+does better than chance (at least as measured using crossvalidation). 
+As can be seen in Figure \ref{fig:PvR}, several
+letters, in particular {\it P} and {\it R} (and, for whatever reason,
+{\it U}, {\it V}, {\it X} and {\it Y} among others) are differentially expressed in
+the two classes. However, while one expects more capital p's in the first class
+and capital r's in the second, using only capital letters is unlikely to perform
+a whole lot better than chance. Thus, while the Bayes error rate for these data
+is better than chance (whatever it happens to be) it is extremely likely that a
+classifier that used different features would vastly out perform this ``optimal''
+classifier.
+
+\begin{figure}
+<<characterclassifier2,fig.width=7,fig.height=6,echo=FALSE,cache=TRUE,dependson='characterclassifier'>>=
+x <- colSums(as.matrix(dtm.char[classes=='Portfolio Management',]))
+y <- colSums(as.matrix(dtm.char[classes=='Risk Management',]))
+X <- as.matrix(dtm.char[classes=='Portfolio Management',c(16,18)])
+Y <- as.matrix(dtm.char[classes=='Risk Management',c(16,18)])
+barplot(rbind(x,y),beside=TRUE,cex.names=0.75,col=c(gray(.8),gray(.4)))
+legend(10,700,c("Portfolio Management","Risk Management"),col=c(gray(.8),gray(.4)),
+    pch=15)
+@
+\caption{\label{fig:PvR}
+Letter distributions for the Portfolio Management and Risk Management 
+classes.
+}
+\end{figure}
+
+%
+%
+%%library("RWeka")
+%%library("tm")
+%%
+%%data("crude")
+%%
+%%BigramTokenizer <- function(x) NGramTokenizer(x, Weka_control(min = 2, max = 2))
+%%tdm <- TermDocumentMatrix(crude, control = list(tokenize = BigramTokenizer))
+%
+%%inspect(tdm[340:345,1:10])
+%
+
+
 \subsection{Classifiers}
+As noted above, there are many classifiers available, and pretty much anything
+one would want has a version in an R package. We tend to use $k$-nearest neighbors,
+as discussed above, when just trying to get a feel for the difficulty of the
+classification task, but we generally prefer random forests (we
+use the \texttt{randomForest} packate, cite{liaw:2002})
+for most classification problems.
+
+Besides our experience, \cite{fernandez:2014} looked at a large number of
+classifiers on a wide range of data sets and determined that, overall, random
+forests were the best (although they do indicate that support vector machines are
+in the running as well). Of course, this is interesting, but when push comes to shove
+what really matters is the problem at hand, so it is a good idea to have
+several options in mind when approaching a classification task.
+
+One nice feature of the random forest classifier is that 
+it can provide an indication of the importance of the individual features
+for the classification task.
+
+<<qf4rf,cache=TRUE,tidy=FALSE,echo=-c(1:2)>>=
+library(tm)
+load('Data/arqfin.RData')
+titles <- Corpus(VectorSource(qf[,'title']))
+abstracts <- Corpus(VectorSource(qf[,'description']))
+classes <- qf.primary
+
+dtmTitles <- DocumentTermMatrix(titles,
+   control=list(removePunctuation=TRUE,
+                removeNumbers=TRUE,
+                stopwords=TRUE,
+                stemming=TRUE,
+                weighting=weightTfIdf))
+dtmTitles <- removeSparseTerms(dtmTitles,.995)
+dtmAbstracts <- DocumentTermMatrix(abstracts,
+   control=list(removePunctuation=TRUE,
+                removeNumbers=TRUE,
+                stopwords=TRUE,
+                stemming=TRUE,
+                weighting=weightTfIdf))
+dtmAbstracts <- removeSparseTerms(dtmAbstracts,.995)
+
+## Put the two matrices into a single one.
+## To distinguish them, we'll capitalize the title words.
+colnames(dtmTitles) <- gsub("(^[[:alpha:]])",
+   "\\U\\1",colnames(dtmTitles),perl=TRUE)
+
+dtmQF <- cbind(dtmTitles,dtmAbstracts)
+@
+
+Let's fit a random forest to the Quantitative Finance
+data. 
+
+<<qfrf,cache=TRUE,tidy=FALSE,dependson='gf4rf'>>=
+library(randomForest)
+set.seed(2566)
+rf <- randomForest(as.matrix(dtmQF),
+         as.factor(classes),importance=TRUE)
+## Mean Decrease in Accuracy
+om <- order(rf$importance[,10],decreasing=TRUE)
+rownames(rf$importance)[om[1:20]]
+## Mean Decrease in Gini
+om <- order(rf$importance[,11],decreasing=TRUE)
+rownames(rf$importance)[og[1:20]]
+@
+
+We can look at the performance of the classifier,
+as estimated in the returned confusion matrix,
+which is computed on the out-of-bag samples.
+
+
+<<qfrfconf,echo=TRUE,tidy=FALSE,dependson='qfrf'>>=
+cnf <- round(rf$confusion,2)
+colnames(cnf) <- c("CF","E","GF","MF","PF",
+                   "PoS","RM","SF","TaMM","Error")
+rownames(cnf) <- c("CF","E","GF","MF","PF",
+                   "PoS","RM","SF","TaMM")
+cnf
+@
+
+Note that two classes, Economics (E) and Mathematical
+Finance (MF) are never correctly classified.
+
+<<qfrfTable1,echo=FALSE,dependson='qfrf'>>=
+tbl <- matrix("",nrow=20,ncol=9)
+colnames(tbl) <- colnames(rf$importance)[1:9]
+for(i in 1:9){
+   o <- order(rf$importance[,i],decreasing=TRUE)
+   tbl[,i] <- rownames(rf$importance)[o[1:nrow(tbl)]]
+}
+@
+
+The Tables \ref{table:imp1to3}--\ref{table:imp7to9} show the top $20$ words
+for each class. These are the words which have
+the maximum decrease in accuracy in the classifier
+for the corresponding class
+when removed.
+
+\begin{table}
+\caption{\label{table:imp1to3}
+Top 20 most important words for the first three classes.
+}
+<<qfrfTable2,echo=FALSE,results='asis'>>=
+kable(tbl[,1:3],format='latex')
+@
+\end{table}
+
+\begin{table}
+\caption{\label{table:imp4to6}
+Top 20 most important words for the second three classes.
+}
+<<qfrfTable3,echo=FALSE,results='asis'>>=
+kable(tbl[,4:6],format='latex')
+@
+\end{table}
+
+\begin{table}
+\caption{\label{table:imp7to9}
+Top 20 most important words for the last three classes.
+}
+<<qfrfTable4,echo=FALSE,results='asis'>>=
+kable(tbl[,7:9],format='latex')
+@
+\end{table}
+
+As the tables show, the words {\bf Option},
+{\bf Market} and {\bf Price}, among a few others,
+are very important title words. Only a few other title
+words appear in the top 20, but it may be that these
+other words are actually more important, since they
+seem to be more specific to the class than the three
+words we've called out.
+
+One might think that, all things being equal, a word
+in the title is more important than a word in the 
+abstract.\footnote{Perusing the tables might
+cause one to doubt this hypothesis, and in fact 
+the tables seem
+to provide pretty good evidence against it.}
+We can test this by looking at the relative
+importance of each title word against the same word in
+the abstract.
+
+<<qfrftitlewords,echo=TRUE>>=
+w <- rownames(rf$importance)
+a <- grep('^[[:upper:]]',w)
+comp <- matrix(0,nrow=length(a),ncol=9)
+titlebest <- vector('list',9)
+for(i in 1:length(a)){
+   b <- which(w == tolower((w[a[i]])))
+   if(length(b)==1){
+      for(j in 1:9){
+         comp[i,j] <- rf$importance[a[i],j]-
+                      rf$importance[b,j]
+         if(comp[i,j]>0) titlebest[[j]] <- c(titlebest[[j]],w[a[i]])
+      }
+   }
+}
+round(apply(comp>0,2,sum)/nrow(comp),2)
+@
+As you can see, the hypothesis is not borne out.
+As noted, the ``top 20'' tables also indicate that words tend
+to be more important in the abstract rather than in the title, as our
+analysis has shown.
+We did keep track of the times that the title word was more important than
+the corresponding word in the abstract, for each class, and so let's take
+a look at these.
+
+<<qfrftitlewords1,echo=FALSE>>=
+w <- options("width")
+options(width=60)
+######### Class 1 ###########
+colnames(tbl)[1]
+titlebest[[1]]
+######### Class 2 ###########
+colnames(tbl)[2]
+titlebest[[2]]
+######### Class 3 ###########
+colnames(tbl)[3]
+titlebest[[3]]
+######### Class 4 ###########
+colnames(tbl)[4]
+titlebest[[4]]
+######### Class 5 ###########
+colnames(tbl)[5]
+titlebest[[5]]
+######### Class 6 ###########
+colnames(tbl)[6]
+titlebest[[6]]
+######### Class 7 ###########
+colnames(tbl)[7]
+titlebest[[7]]
+######### Class 8 ###########
+colnames(tbl)[8]
+titlebest[[8]]
+######### Class 9 ###########
+colnames(tbl)[9]
+titlebest[[9]]
+options(width=w$width)
+@
+
+<<qfrftitlewords2,echo=TRUE,tidy=FALSE>>=
+library(igraph)
+W <- matrix(0,nrow=9,ncol=9)
+rownames(W) <- c("CF","E","GF","MF","PF",
+                 "PoS","RM","SF","TaMM")
+colnames(W) <- rownames(W)
+for(i in 1:8){
+   for(j in (i+1):9){
+      inter <- intersect(tbl[,i],tbl[,j])
+      W[i,j] <- length(inter)
+      W[j,i] <- W[i,j]
+   }
+}
+g <- graph.adjacency(W,weighted=TRUE,
+                     mode='undirected')
+@
+
+\begin{figure}
+<<qfrftitlewords3,fig.width=6,fig.height=6,echo=FALSE>>=
+plot(g,edge.width=E(g)$weight,layout=layout.circle(g),
+     vertex.color='white',vertex.size=30)
+@
+\caption{\label{fig:top20WordGraph}
+Graph built from the top 20 most important words for each class.
+The nodes correspond to class, and the width of the edges indicates
+the number of words the two classes have in their respective 20 most
+important words.
+}
+\end{figure}
+
+\subsection{Discriminating and descriptive words}
+
 \subsection{Combining Clustering and Classification}
-\section{ISPDT}
+\section{Iterative Denoising}
 \cite{priebe:2003}
-\section{Fusion}
+\section{Fusion: Two Corpora}
 \index{fusion}
