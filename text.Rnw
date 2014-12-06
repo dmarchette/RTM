@@ -29,7 +29,7 @@
 
 \frontmatter
 
-\title{Text Data Mining With R}
+\title{Text Data Mining Using R}
 \author{David J. Marchette and Elizabeth L. Hohman}
 \maketitle
 
