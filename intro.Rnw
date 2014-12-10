@@ -7,7 +7,7 @@
 %\usepackage[utf8]{inputenc}
 
 
-\section{Introductory Example}
+\section{Introductory Example -- Edited}
 
 
 %<<echo=FALSE,results='hide'>>=
