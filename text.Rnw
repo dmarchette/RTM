@@ -57,11 +57,11 @@
 \chapter{Basic Statistics}\label{chapt:basic}
 \include{basic}
 
-%\chapter{Statistical Text Processing Fundamentals}\label{chapt:stats}
-\include{stats}
-
 \chapter{Text Classification}\label{chapt:class}
 \include{class}
+
+%\chapter{Statistical Text Processing Fundamentals}\label{chapt:stats}
+\include{stats}
 
 \chapter{Natural Language Processing}\label{chapt:nlp}
 \include{nlp}

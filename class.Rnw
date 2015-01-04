@@ -1,9 +1,6 @@
 \section{Unsupervised (Clustering)}
 Unsupervised machine learning, or clustering, is performed on
-data to determine the natural groups within the data. We have seen
-this in Chapter \ref{chapt:stats}, but we will investigate it
-in more depth in this chapter.
-
+data to determine the natural groups within the data. 
 Of course, in order to decide how many groups there are, and which
 observations go in which group, we have to decide what we mean by ``group''.
 Informally, a group is a set of observations that are closer to each other
@@ -59,11 +56,26 @@ Clearly, the two different cluster structures require different clustering
 techniques, and what this comes down to is a different definition of what
 one means by the cluster definition:
 {\it points that are closer to each other than to points in other groups}.
+This depends fundamentally on the concept of ``close'' or distance (or
+dissimilarity or similarity). This closeness can extend beyond the
+usual idea of the distance between points to that of the distance between
+a point and a group, or between two groups of points. These different
+concepts can lead to very different definitions of ``group'' or cluster,
+and can lead to very different cluster structures.
+
+\subsection{Hierarchical clustering on the distance matrix}
 Hierarchical (agglomerative) clustering starts with one cluster per point,
 finds the two closest groups and merges them, and repeats until
 ultimately every point is in a single group. 
-
-\subsection{Hierarchical clustering on the distance matrix}
+In this section we will assume that the document set is small enough that
+it is practical to compute the complete inter-point distance matrix. This
+means that these methods are restricted to a few thousands to tens of thousands
+of documents
+(depending on the amount of memory and time one has). In further sections
+we will look at methods that do not require the full $O(n^2)$ calculations
+and storage required by brute-force methods like this, but we can
+easily apply these methods to small to
+moderate document collections.
 
 If the definition
 of distance between groups is:
@@ -71,35 +83,81 @@ of distance between groups is:
 d(g_1,g_2) = \min\limits_{x\in g_1, y\in g_2}  d(x,y),
 \end{equation}
 (which is called ``single linkage'') then the spirals in Figure
-\ref{fig:2clusts} will be disovered as the two penultimate groups.
+\ref{fig:2clusts} will be discovered as the two penultimate groups
+(at least if $d$ is Euclidean distance).
 Other methods such as ``complete linkage'', where the $\min$ 
 in Equation (\ref{eqn:singlelinkage}) is replaced
 by $\max$, or where the distance is the distance between the centroids
 of the groups,
 or various other distances will result in other definitions of groups
-(such as ``roughly spherical'', for example).
+(such as ``roughly spherical'', for example). As mentioned, the
+cluster structure also depends on the definition of $d$, which is usually
+either a distance (metric) or a dissimilarity (does not require the triangle
+inequality to hold).
 
-We have seen hierarchical clustering before, for example in Figures
-\ref{fig:qfmodelAIC1heat},
-\ref{fig:qfmodel1hclust} and
-\ref{fig:shakespeareD4hclust}. Hierarchical clustering requires
+%We have seen hierarchical clustering before, for example in Figures
+%\ref{fig:qfmodelAIC1heat},
+%\ref{fig:qfmodel1hclust} and
+%\ref{fig:shakespeareD4hclust}. 
+Hierarchical clustering requires
 two inputs: the inter-point distance matrix and the method of 
 comparing groups. Note that while we will continue to refer to the 
 former as a ``distance'', all we really require is that it be a 
-dissimilarity.
+dissimilarity:
+\begin{eqnarray}
+d(x,x) &=& 0\\
+d(x,y) &\geq&0\\
+d(x,y) &=& d(y,x).
+\end{eqnarray}
+Usually one assumes that $d(x,y)=0$ if and only if $x=y$, but this
+will often not be the case in document analysis, particularly when
+one is dealing with very small documents such as paper titles or tweets.
 
-Let's return to the Shakespeare works. We have looked at this before
-in Chapter \ref{chapt:stats}, but now we'll see what the consequences
-are for various dissimilarities and clustering methods.
+Let's consider the Shakespeare works. The data will consist of the 
+word-frequency for each word in the document. We will see more sophisticated
+methods in the next few chapters, but this will do for now.
 
-First we compute several different distances. We have seen Hellinger
-and Cosine, and we'll add Euclidean and a number of others available
-in the \texttt{proxy} package.
+First we compute several different distances. There are a large number
+of dissimilarities available
+in the \texttt{proxy} package. We'll look at the dissimilarities
+defined in Table \ref{table:distances}.
 
-First consider the Bhjattacharyya distance:
-\begin{equation}
-d_B(x,y) = \sqrt{\sum\limits_i(\sqrt{x_i}-\sqrt{y_i})^2}
-\end{equation}
+\begin{table}
+\centering
+\caption{\label{table:distances}
+Set of distance and dissimilarity measures. Here
+$p_i=x_i/\sum\limits_j x_j$ and $q_i=y_i/\sum\limits_j y_j$.
+Information about the distances can be found in \cite{cox:2001}
+unless otherwise indicated. See also the Wikipedia pages for these
+distances.
+}
+\begin{tabular}{|l|c|}
+Name&Definition\\
+\hline
+Bhjattacharyya \cite{Bhattacharyya:1943}&
+$d_B(x,y) = \sqrt{\sum\limits_i(\sqrt{x_i}-\sqrt{y_i})^2}$\\
+Canberra&
+$d_C(x,y) = \sum\limits_i |x_i-y_i|/|x_i+y_i|$\\
+Cosine \cite{anderberg:1973}&
+$d_c(x,y) = x^ty/sqrt{\|x\|\|y\|}$\\
+Divergence&
+$d_d(x,y) =  \sum\limits_i (x_i-y_i)^2/(x_i+y_i)^2$\\
+Euclidean ($l_2$)&
+$d_E(x,y) =  \sqrt{\sum\limits_i (x_i-y_i)^2}$\\
+Hellinger&
+$d_H(x,y) =  \sqrt{\sum\limits_i \left(\sqrt{p_i}-\sqrt{q_i}\right)^2}$\\
+Manhattan ($l_1$)&
+$d_m(x,y) =  \sum\limits_i |x_i-y_i|$\\
+Minkowski ($l_p$)&
+$d_M(x,y) =  \left(\sum\limits_i |x_i-y_i|^p\right)^\frac{1}{p}$\\
+Soergel&
+$d_S(x,y) = \sum\limits_i |x_i-y_i|/\sum\limits_i\max(x_i,y_i)$\\
+Supremum ($l_\infty$)&
+$d_s(x,y) =  \max\limits_i |x_i-y_i|$\\
+Whittaker \cite{whittaker:1952}&
+$d_W(x,y) =  \sum\limits_i |p_i-q_i|/2$\\
+\end{tabular}
+\end{table}
 
 <<hclustB,cache=TRUE,echo=FALSE,return='hide',dependson='shakespeareTM'>>=
 DB <- dissimilarity(dtmS.TfIdf,method='Bhjattacharyya')
