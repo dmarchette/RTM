@@ -83,35 +83,18 @@ into play, and one is well advised to see if someone has already implemented
 the algorithms in a package (such as tm). A small timing example is shown 
 below, to illustrate the various timings for the three approaches.
 
-First we obtain some documents, by obtaining abstracts from the
-Journal of Statistical Software:
+Let's consider the abstracts from
+the Journal of Statistical Software. 
+The code to obtain these data is shown on page
+\pageref{jss.obtain}. 
 
-<<jssdata,cache=TRUE,tidy=FALSE>>=
-library(tm)
-library(OAIHarvester)
-library(XML)
+We will put cleaned versions
+of the abstracts in the variable \texttt{docs}, replicating them
+so that there are at least $10000$ documents, so that we can
+run various sizes of corpora through the different algorithms.
 
-getData <- function()
-{
-   x <- oaih_list_records("http://www.jstatsoft.org/oai")
-   JSS_papers <- oaih_transform(x[,"metadata"])
-   ## order by time
-   ord <- order(as.Date(unlist(JSS_papers[,"date"])))
-   JSS_papers <- JSS_papers[ord,]
-   ## only those papers with an abstract
-   abst <- grep("Abstract:",JSS_papers[,"description"])
-   JSS_papers <- JSS_papers[abst,]
-   JSS_papers
-}
-
-remove_HTML_markup <- function(s)
-{
-   doc <- htmlTreeParse(s,asText=TRUE,trim=FALSE)
-   xmlValue(xmlRoot(doc))
-}
-
-JSS_papers <- getData()
-
+<<jssdata,echo=TRUE,tidy=FALSE,cache=TRUE>>=
+load("Data/JSS_papers.RData")
 n <- nrow(JSS_papers)
 N <- 18
 
@@ -131,6 +114,8 @@ length(lexicon)
 
 @
 
+The data we will look at were obtained on
+\Sexpr{format(jss.date,"%B %d, %Y")}.
 Now we compute the term frequencies for various collections of documents
 drawn from this corpus. 
 We then compare the
@@ -172,7 +157,7 @@ tmTf <- function(docs) {
 
 @
 
-We can now see which algoritm is most efficient for
+We can now see which algorithm is most efficient for
 various corpus sizes.
 The benchmark package lets us time the three methods for various
 corpus sizes, and compare their performance.

@@ -57,14 +57,18 @@ For a reasonable sized document set, consider the subject
 ``Quantitative Finance'' from the arxiv repository:
 
 <<qfin2,cache=TRUE,echo=2:3,tidy=FALSE>>=
-d <- Sys.time()
+arqfin.date <- Sys.time()
 x <- oaih_list_records(baseurl,set="q-fin")
 arXivQFin <- oaih_transform(x[,"metadata"])
-save(arXivQFin,file='Data/arqfin.RData')
+## If the above is run, we are changing the qfin
+## data, so we need to ensure that it is reloaded.
+if(file.exists('Data/arqfin.RData'))
+   unlink('Data/arqfin.RData')
 @
 
 There are \Sexpr{nrow(arXivQFin)} documents (as 
-of \Sexpr{format(d,"%B %d, %Y")} -- the collection grows, of course, so you'll
+of \Sexpr{format(arqfin.date,"%B %d, %Y")} -- 
+the collection grows, of course, so you'll
 get more when you run the above code).
 
 The information returned for these documents is:
@@ -81,7 +85,7 @@ Now, consider just those articles with the phrase
 ``Quantitative Finance'' in their
 subjects:
 
-<<qfin4,cache=TRUE,tidy=FALSE,echo=1:6>>=
+<<qfin4,cache=TRUE,tidy=FALSE,echo=1:5>>=
 a <- unlist(lapply(arXivQFin[,"subject"],function(x) 
                            length(grep("Quantitative Finance",x))))
 b <- which(a==1)
@@ -90,36 +94,82 @@ qf.primary <- unlist(lapply(qf[,"subject"],function(x)
                           x[grep("Quantitative Finance",x)]))
 qf.primary <- gsub("Quantitative Finance - ","",
                    qf.primary)
+if(file.exists('Data/arqfin.RData')){
+load('Data/arqfin.RData')
+} else {
+save(arXivQFin,arqfin.date,qf,qf.primary,file='Data/arqfin.RData')
+}
+@
+<<qfin4table,cache=TRUE,tidy=FALSE,echo=1:5>>=
 table(qf.primary)
-save(arXivQFin,qf,qf.primary,file='Data/arqfin.RData')
 @
 
 This reduces the set of documents to \Sexpr{length(qf.primary)}, with
 the above table of primary subjects.
 
-<<qfinsave,results='hide',echo=FALSE>>=
-if(!file.exists("Data/arqfin.RData"))
-	save(arXivQFin,qf,qf.primary,file="Data/arqfin.RData")
-@
 <<unsetoptsT1,results='hide',echo=FALSE>>=
 options(width=w$width)
+@
+
+A similar procedure obtains the abstracts from
+the Journal of Statistical Software:
+\label{jss.obtain}
+<<jssdata1,tidy=FALSE>>=
+library(tm)
+library(OAIHarvester)
+library(XML)
+
+getData <- function()
+{
+   x <- oaih_list_records("http://www.jstatsoft.org/oai")
+   JSS_papers <- oaih_transform(x[,"metadata"])
+   ## order by time
+   ord <- order(as.Date(unlist(JSS_papers[,"date"])))
+   JSS_papers <- JSS_papers[ord,]
+   ## only those papers with an abstract
+   abst <- grep("Abstract:",JSS_papers[,"description"])
+   JSS_papers <- JSS_papers[abst,]
+   JSS_papers
+}
+
+remove_HTML_markup <- function(s)
+{
+   doc <- htmlTreeParse(s,asText=TRUE,trim=FALSE)
+   xmlValue(xmlRoot(doc))
+}
+@
+
+<<jssdata,cache=TRUE,echo=1,tidy=FALSE>>=
+JSS_papers <- getData()
+
+if(file.exists("Data/JSS_papers.RData")){
+load("Data/JSS_papers.RData")
+} else {
+jss.date <- Sys.time()
+save(JSS_papers,jss.date,file="Data/JSS_papers.RData")
+}
 @
 
 
 \section{Searching PubMed}
 There are many ways to get data from PubMed. One method uses
 the \texttt{RISmed} package.
-<<pmEbola,echo=1:5,tidy=FALSE>>=
+<<pmEbola,echo=1:3,tidy=FALSE,cache=TRUE>>=
 library(RISmed)
 ebolaSummary <- EUtilsSummary('ebola hemorrhagic',
    type='esearch',db='pubmed')
-summary(ebolaSummary)
 ebolaDocs <- EUtilsGet(ebolaSummary,
    type='efetch',db='pubmed')
+if(file.exists("Data/ebola.RData")){
+load("Data/ebola.RData")
+} else {
+ebola.date <- Sys.time()
+save(ebolaDocs,ebolaSummary,ebola.date,file="Data/ebola.RData")
+}
+@
+<<pmEbola2,echo=c(1:6),tidy=FALSE>>=
 Author(ebolaDocs)[[1]]
 ArticleTitle(ebolaDocs)[[1]]
-save(ebolaDocs,ebolaSummary,file="Data/ebola.RData")
-eday <- Sys.time()
 @
 \begin{figure}
 <<pmEbolaFig,echo=FALSE,fig.width=4,fig.height=4,results='hide'>>=
@@ -128,7 +178,7 @@ barplot(table(y),las=2,ylab="# Articles",cex.names=0.75)
 @
 \caption{\label{fig:ebolaPM}
 Number of Ebola articles in PubMed per year.
-Data collected on \Sexpr{format(eday,"%B %d, %Y")}.
+Data collected on \Sexpr{format(ebola.date,"%B %d, %Y")}.
 }
 \end{figure}
 
@@ -148,7 +198,7 @@ or nights (Eastern time).
 
 \section{RSS feed examples: Google news and others}
 
-Obtaining data from an RSS feed is simply using the XML package.
+Obtaining data from an RSS feed is simple using the \texttt{XML} package.
 
 For example, consider the Ars Mathematica blog, 
 \url{http://www.arsmathematica.net/}.
@@ -162,29 +212,71 @@ We can download the data from this feed using \texttt{xmlParse}:
                         xmlValue)
   contents <- xpathSApply(xmlRoot(doc),"//item/content:encoded",
                         xmlValue)
-  save(doc,titles,descriptions,contents,file='Data/arsmath.RData')
+  if(file.exists('Data/arsmath.RData')){
+  load('Data/arsmath.RData')
+  } else {
+  arsmath.date <- Sys.time()
+  save(doc,titles,descriptions,contents,arsmath.date,file='Data/arsmath.RData')
+  }
 @
 
-<<arsout,echo=3:6,tidy=FALSE,no_pref=TRUE>>=
+<<arsout,echo=3:4,tidy=FALSE,no_pref=TRUE>>=
   w <- options("width")
   options(width=60)
   strwrap(titles[[1]])
-  strwrap(contents[[1]])
-  # A bit of trivial cleaning
-  strwrap(gsub("<.*?>", "",contents[[1]]))
+  strwrap(contents[[1]])[1:10]
   options(width=w$width)
 @
 
 Obtaining Google News, or any other RSS feed, is done the same way.
-In this case we'll grab the Science news.
+In this case we'll grab the Science news. This code is adapted from
+code provided by Zach Mayer in his blog, which can be obtained at
+\url{http://www.r-bloggers.com/importing-google-news-data-to-r/}.
+Our version is simpler, but shows some basic ideas of
+how to obtain and parse data from RSS feeds such as Google News.
 
-<<googlenews,cache=TRUE,echo=TRUE,tidy=FALSE>>=
-gnURL <- 
-  "http://news.google.com/news?pz=1&cf=all&ned=us&hl=en&topic=snc&output=rss"
-doc <- xmlParse(gnURL)
-titles <- xpathSApply(xmlRoot(doc),"//item/title",
-                        xmlValue)
-titles[7]
+<<googlenews,cache=TRUE,echo=1:20,tidy=FALSE>>=
+library(XML)
+library(plyr)
+## Get at most 300 articles from the US Science News section of Google
+## Note that 300 is a maximum set by Google News
+gnURL <- paste(
+  "http://news.google.com/",
+  "news?pz=1&cf=all&num=300",
+  "&ned=us&hl=en&topic=snc&output=rss",sep="")
+doc <- xmlTreeParse(gnURL,useInternalNodes=TRUE)
+nodes = getNodeSet(doc, "//item")
+## Convert the data to a data frame
+mydf = ldply(nodes, as.data.frame(xmlToList))
+colnames(mydf) <- gsub("value\\.","",colnames(mydf))
+
+## Function to convert the html in the description
+## to text
+parseDescription <- function(str) {
+   out <- paste(unlist(
+      xpathApply(htmlParse(str, asText=TRUE),
+        "//body//text()", 
+        xmlValue)),
+	      collapse="\n")
+   z <- strsplit(out,'\n')[[1]]
+   outlet <- z[1]
+   lead <- z[2]
+   story <- paste(z[-(1:3)],collapse=" ")
+   out <- data.frame(outlet=outlet,lead=lead,story=story)
+   out
+}
+## Apply the function to the descriptions
+## and wrap everything up into a data frame
+description <- lapply(mydf$description,parseDescription)
+description <- do.call(rbind,description)
+docs <- cbind(mydf,description)
+
+if(file.exists('Data/googleSciNews.RData')){
+load('Data/googleSciNews.RData')
+} else {
+gsinews.date <- Sys.time()
+save(docs,gscinews.date,file='Data/googleSciNews.RData')
+}
 @
 
 As with all RSS feeds, one obtains the most recent 
@@ -216,9 +308,11 @@ example is borrowed (with a few minor modifications) from
 After a small amount of experimenting, we can determine the
 filename, and download the file.
 
-<<shakespeare,cache=TRUE,tidy=FALSE>>=
+<<shakespeare,cache=TRUE,echo=c(2,4:22),tidy=FALSE>>=
+if(!file.exists("Data/shakespeare.txt")){
 download.file("http://www.gutenberg.org/files/100/100.txt", 
               destfile = "Data/shakespeare.txt")
+}
 ## Read the data in and make a single character string
 txt <- readLines("Data/shakespeare.txt")
 dates <- grep("^1[56][[:digit:]][[:digit:]]",txt)
@@ -297,3 +391,75 @@ an act from one of the plays, with each play numbered consecutively
 (as they appear in the original file).
 }
 \end{figure}
+
+\section{Data in R Packages}
+Several R packages have text data. This section is by no means comprehensive,
+but will point out some of the resources that are readily available. 
+
+<<tm,echo=FALSE,results='hide'>>=
+library(tm)
+data(acq)
+data(crude)
+@
+The \texttt{tm} package has two smaller corpora from Reuters: \texttt{acq},
+a set of \Sexpr{length(acq)}
+articles on corporate acquisitions, and \texttt{crude},
+a set of \Sexpr{length(crude)} articles about crude oil.
+
+The \texttt{languageR} package contains the books {\it Moby Dick}
+and {\it Alice's Adventures in Wonderland}. We can split these into
+corpora where each document corresponds to a chapter of the book.
+For example, for Moby Dick, the following code extracts the chapters.
+
+<<moby,echo=TRUE>>=
+library(languageR)
+M <- paste(moby,collapse=" ")
+chapters <- gregexpr("CHAPTER [[:digit:]]+",M)[[1]][-33]
+docs <- rep("",length(chapters))
+for(i in 2:length(chapters)){
+   a <- chapters[i-1]
+   b <- chapters[i]-1
+   docs[i-1] <- substring(M,a,b)
+}
+a <- chapters[length(chapters)]
+docs[length(chapters)] <- substring(M,a,nchar(M))
+substring(docs[1],1,34)
+substring(docs[135],1,31)
+@
+
+Similarly, for Alice:
+<<alice,echo=TRUE>>=
+A <- paste(alice,collapse=" ")
+chapters <- gregexpr("CHAPTER",A)[[1]]
+docs <- rep("",length(chapters))
+for(i in 2:length(chapters)){
+   a <- chapters[i-1]
+   b <- chapters[i]-1
+   docs[i-1] <- substring(A,a,b)
+}
+a <- chapters[length(chapters)]
+docs[length(chapters)] <- substring(A,a,nchar(A))
+substring(docs[1],1,30)
+@
+
+<<maxent,echo=FALSE,results='hide'>>=
+library(maxent)
+suppressWarnings({
+NYTimes <- read.csv(system.file("data/NYTimes.csv.gz",package="maxent"),
+       stringsAsFactors=FALSE)
+USCongress <- read.csv(system.file("data/USCongress.csv.gz",package="maxent"),
+       stringsAsFactors=FALSE)
+})
+@
+The \texttt{maxent} package contains a set of 
+\Sexpr{nrow(NYTimes)} labeled headlines from the New York Times.
+These have \Sexpr{length(unique(NYTimes[,'Topic.Code']))}
+topic codes associated with them, but these are not described in the
+help page associated with the data. The package also contains a set
+of \Sexpr{nrow(USCongress)} bills from the US Congress. The
+text corresponds to a short description of the bill.
+
+There are other packages which contain processed data, such as word
+counts. For example, the \texttt{textir} package contains phrase counts
+for a set of restaurant reviews, with ratings, and phrase counts and
+ideology scores for members of the $109$th United States Congress.
