@@ -34,15 +34,17 @@ knitr::knit_hooks$set( output = function(x, options) {
 knitr::opts_template$set("kill_pref"=list(comment=NA, no_pref=TRUE))
 @
 
-Open archives (\url{www.openarchives.org})
+Open archives (\url{www.openarchives.org})\index{Data Sources!openarchives}
 provide access to a huge number of document archives.
 Check out \url{http://www.openarchives.org/Register/BrowseSites/}
 for a list of registered data providers. 
 
 One very nice repository for scientific article data is arXiv
-(\url{arxiv.org}). Here's how to
-use the OAIHarvester package to obtain a document set from arXiv.
+(\url{arxiv.org}). Here's how to\index{Data Sources!arXiv}
+use the \texttt{OAIHarvester}\index{R Libraries!OAIHarvester}
+package to obtain a document set from arXiv.
 First, we get a list of the available data sets.
+\index{R Libraries!XML}
 
 <<qfin,cache=TRUE,tidy=FALSE>>=
 library(OAIHarvester)
@@ -55,6 +57,8 @@ x[,1:2]
 Now we download the document meta data using \texttt{oaih\_list\_records}.
 For a reasonable sized document set, consider the subject
 ``Quantitative Finance'' from the arxiv repository:
+\index{Text Data!Quantitative Finance}
+\index{Text Data!arXiv}
 
 <<qfin2,cache=TRUE,echo=2:3,tidy=FALSE>>=
 arqfin.date <- Sys.time()
@@ -80,6 +84,7 @@ options(width=60)
 <<qfin3,cache=TRUE,tidy=FALSE>>=
 colnames(arXivQFin)
 @
+\index{Text Data!Quantitative Finance}
 
 Now, consider just those articles with the phrase
 ``Quantitative Finance'' in their
@@ -103,6 +108,8 @@ save(arXivQFin,arqfin.date,qf,qf.primary,file='Data/arqfin.RData')
 <<qfin4table,cache=TRUE,tidy=FALSE,echo=1:5>>=
 table(qf.primary)
 @
+\index{Text Data!Quantitative Finance}
+\index{Text Data!arXiv}
 
 This reduces the set of documents to \Sexpr{length(qf.primary)}, with
 the above table of primary subjects.
@@ -110,12 +117,16 @@ the above table of primary subjects.
 <<unsetoptsT1,results='hide',echo=FALSE>>=
 options(width=w$width)
 @
+\index{Text Data!Quantitative Finance}
+\index{Text Data!arXiv}
 
 A similar procedure obtains the abstracts from
-the Journal of Statistical Software:
+the Journal of Statistical 
+Software:\index{Text Data!Journal of Statistical Software}
+\index{R Libraries!OAIHarvester}
+\index{R Libraries!XML}
 \label{jss.obtain}
 <<jssdata1,tidy=FALSE>>=
-library(tm)
 library(OAIHarvester)
 library(XML)
 
@@ -153,7 +164,10 @@ save(JSS_papers,jss.date,file="Data/JSS_papers.RData")
 
 \section{Searching PubMed}
 There are many ways to get data from PubMed. One method uses
-the \texttt{RISmed} package.
+the \texttt{RISmed}\index{R Libraries!RISmed}
+package.\index{Data Sources!Pubmed}
+\index{Text Data!Ebola}
+
 <<pmEbola,echo=1:3,tidy=FALSE,cache=TRUE>>=
 library(RISmed)
 ebolaSummary <- EUtilsSummary('ebola hemorrhagic',
@@ -167,6 +181,7 @@ ebola.date <- Sys.time()
 save(ebolaDocs,ebolaSummary,ebola.date,file="Data/ebola.RData")
 }
 @
+\index{Text Data!Ebola}
 <<pmEbola2,echo=c(1:6),tidy=FALSE>>=
 Author(ebolaDocs)[[1]]
 ArticleTitle(ebolaDocs)[[1]]
@@ -185,20 +200,25 @@ Data collected on \Sexpr{format(ebola.date,"%B %d, %Y")}.
 The abstracts can be extracted using \texttt{AbstractText}.
 To see what fields are accessible from the data, we can
 list them:
+\index{Text Data!Ebola}
 
 <<ebolaList,echo=TRUE>>=
 slotNames(ebolaDocs)
 @
+\index{Text Data!Ebola}
 
 Note that there is a limit to the amount of data that can be
 downloaded at one time. In order to avoid over taxing the server
 (and risk being temporarily blocked) one should limit the
 number of queries, and schedule larger requests for weekends
 or nights (Eastern time).
+\index{Data Sources!Pubmed}
 
 \section{RSS feed examples: Google news and others}
 
 Obtaining data from an RSS feed is simple using the \texttt{XML} package.
+\index{R Libraries!XML}
+\index{Data Sources!RSS}
 
 For example, consider the Ars Mathematica blog, 
 \url{http://www.arsmathematica.net/}.
@@ -234,6 +254,9 @@ code provided by Zach Mayer in his blog, which can be obtained at
 \url{http://www.r-bloggers.com/importing-google-news-data-to-r/}.
 Our version is simpler, but shows some basic ideas of
 how to obtain and parse data from RSS feeds such as Google News.
+\index{Data Sources!Google News}
+\index{Data Sources!RSS}
+\index{R Libraries!plyr}
 
 <<googlenews,cache=TRUE,echo=1:20,tidy=FALSE>>=
 library(XML)
@@ -278,6 +301,7 @@ gsinews.date <- Sys.time()
 save(docs,gscinews.date,file='Data/googleSciNews.RData')
 }
 @
+\index{Text Data!Google News!Science}
 
 As with all RSS feeds, one obtains the most recent 
 articles. In order to obtain a larger collection, one must 
@@ -292,7 +316,9 @@ Data can be obtained from the web using the \texttt{download.file}
 function. This allows us to specify the URL of the file, and download it
 into a local file. 
 
-Here is an example using Project Gutenberg. First, let's get the
+Here is an example using Project 
+Gutenberg.\index{Data Sources!Project Gutenberg}
+First, let's get the
 index, and look through it for something interesting:
 <<gutenberg,cache=TRUE,tidy=FALSE>>=
 download.file("http://www.gutenberg.org/dirs/GUTINDEX.ALL",
@@ -307,6 +333,7 @@ example is borrowed (with a few minor modifications) from
 \url{http://www.r-bloggers.com/text-mining-the-complete-works-of-william-shakespeare/}.}
 After a small amount of experimenting, we can determine the
 filename, and download the file.
+\index{Text Data!Shakespeare}
 
 <<shakespeare,cache=TRUE,echo=c(2,4:22),tidy=FALSE>>=
 if(!file.exists("Data/shakespeare.txt")){
@@ -333,7 +360,8 @@ works <- unlist(strsplit(txt,"<<[^>]*>>"))
 ## remove the head and tail
 shakespeare <- works[-c(1,2,length(works))]
 @
-Note that Project Gutenberg does not allow bulk downloads. Getting data
+Note that Project Gutenberg\index{Data Sources!Project Gutenberg}
+does not allow bulk downloads. Getting data
 this way is fine for one document now and then, but do not try to obtain
 dozens of books this way.
 
@@ -349,6 +377,7 @@ save(shakespeare,titles,dates,shakespeare.class,file="Data/shakespeare.RData")
 @
 
 Some simple text processing to look at the documents:
+\index{Text Data!Shakespeare}
 
 <<shakeprocess,cache=TRUE,tidy=FALSE>>=
 library(proxy)
@@ -391,10 +420,14 @@ an act from one of the plays, with each play numbered consecutively
 (as they appear in the original file).
 }
 \end{figure}
+\index{Text Data!Shakespeare}
 
 \section{Data in R Packages}
 Several R packages have text data. This section is by no means comprehensive,
 but will point out some of the resources that are readily available. 
+\index{R Libraries!tm}
+\index{Text Data!Corporate Acquisitions}
+\index{Text Data!Crude Oil}
 
 <<tm,echo=FALSE,results='hide'>>=
 library(tm)
@@ -406,8 +439,10 @@ a set of \Sexpr{length(acq)}
 articles on corporate acquisitions, and \texttt{crude},
 a set of \Sexpr{length(crude)} articles about crude oil.
 
-The \texttt{languageR} package contains the books {\it Moby Dick}
-and {\it Alice's Adventures in Wonderland}. We can split these into
+The \texttt{languageR}\index{R Libraries!languageR}
+package contains the books {\it Moby Dick}\index{Text Data!Mody Dick}
+and {\it Alice's Adventures in Wonderland}.\index{Text Data!Alice's Adventures in Wonderland} 
+We can split these into
 corpora where each document corresponds to a chapter of the book.
 For example, for Moby Dick, the following code extracts the chapters.
 
@@ -451,15 +486,19 @@ USCongress <- read.csv(system.file("data/USCongress.csv.gz",package="maxent"),
        stringsAsFactors=FALSE)
 })
 @
-The \texttt{maxent} package contains a set of 
-\Sexpr{nrow(NYTimes)} labeled headlines from the New York Times.
+The \texttt{maxent}\index{R Libraries!maxent}
+package contains a set of 
+\Sexpr{nrow(NYTimes)} labeled headlines from the 
+New York Times.\index{Text Data!New York Times}
 These have \Sexpr{length(unique(NYTimes[,'Topic.Code']))}
 topic codes associated with them, but these are not described in the
 help page associated with the data. The package also contains a set
-of \Sexpr{nrow(USCongress)} bills from the US Congress. The
+of \Sexpr{nrow(USCongress)}\index{Text Data!United States Congress}
+bills from the US Congress. The
 text corresponds to a short description of the bill.
 
 There are other packages which contain processed data, such as word
-counts. For example, the \texttt{textir} package contains phrase counts
+counts. For example, the 
+\texttt{textir}\index{R Libraries!textir} package contains phrase counts
 for a set of restaurant reviews, with ratings, and phrase counts and
 ideology scores for members of the $109$th United States Congress.
