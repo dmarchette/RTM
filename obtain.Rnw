@@ -41,10 +41,11 @@ for a list of registered data providers.
 
 One very nice repository for scientific article data is arXiv
 (\url{arxiv.org}). Here's how to\index{Data Sources!arXiv}
-use the \texttt{OAIHarvester}\index{R Libraries!OAIHarvester}
+use the 
+\texttt{OAIHarvester}\index{R Libraries!OAIHarvester@\texttt{OAIHarvester}}
 package to obtain a document set from arXiv.
 First, we get a list of the available data sets.
-\index{R Libraries!XML}
+\index{R Libraries!XML@\texttt{XML}}
 
 <<qfin,cache=TRUE,tidy=FALSE>>=
 library(OAIHarvester)
@@ -123,8 +124,8 @@ options(width=w$width)
 A similar procedure obtains the abstracts from
 the Journal of Statistical 
 Software:\index{Text Data!Journal of Statistical Software}
-\index{R Libraries!OAIHarvester}
-\index{R Libraries!XML}
+\index{R Libraries!OAIHarvester@\texttt{OAIHarvester}}
+\index{R Libraries!XML@\texttt{XML}}
 \label{jss.obtain}
 <<jssdata1,tidy=FALSE>>=
 library(OAIHarvester)
@@ -164,7 +165,7 @@ save(JSS_papers,jss.date,file="Data/JSS_papers.RData")
 
 \section{Searching PubMed}
 There are many ways to get data from PubMed. One method uses
-the \texttt{RISmed}\index{R Libraries!RISmed}
+the \texttt{RISmed}\index{R Libraries!RISmed@\texttt{RISmed}}
 package.\index{Data Sources!Pubmed}
 \index{Text Data!Ebola}
 
@@ -217,7 +218,7 @@ or nights (Eastern time).
 \section{RSS feed examples: Google news and others}
 
 Obtaining data from an RSS feed is simple using the \texttt{XML} package.
-\index{R Libraries!XML}
+\index{R Libraries!XML@\texttt{XML}}
 \index{Data Sources!RSS}
 
 For example, consider the Ars Mathematica blog, 
@@ -256,7 +257,7 @@ Our version is simpler, but shows some basic ideas of
 how to obtain and parse data from RSS feeds such as Google News.
 \index{Data Sources!Google News}
 \index{Data Sources!RSS}
-\index{R Libraries!plyr}
+\index{R Libraries!plyr@\texttt{plyr}}
 
 <<googlenews,cache=TRUE,echo=1:20,tidy=FALSE>>=
 library(XML)
@@ -425,7 +426,7 @@ an act from one of the plays, with each play numbered consecutively
 \section{Data in R Packages}
 Several R packages have text data. This section is by no means comprehensive,
 but will point out some of the resources that are readily available. 
-\index{R Libraries!tm}
+\index{R Libraries!tm@\texttt{tm}}
 \index{Text Data!Corporate Acquisitions}
 \index{Text Data!Crude Oil}
 
@@ -439,7 +440,7 @@ a set of \Sexpr{length(acq)}
 articles on corporate acquisitions, and \texttt{crude},
 a set of \Sexpr{length(crude)} articles about crude oil.
 
-The \texttt{languageR}\index{R Libraries!languageR}
+The \texttt{languageR}\index{R Libraries!languageR@\texttt{languageR}}
 package contains the books {\it Moby Dick}\index{Text Data!Mody Dick}
 and {\it Alice's Adventures in Wonderland}.\index{Text Data!Alice's Adventures in Wonderland} 
 We can split these into
@@ -486,7 +487,7 @@ USCongress <- read.csv(system.file("data/USCongress.csv.gz",package="maxent"),
        stringsAsFactors=FALSE)
 })
 @
-The \texttt{maxent}\index{R Libraries!maxent}
+The \texttt{maxent}\index{R Libraries!maxent@\texttt{maxent}}
 package contains a set of 
 \Sexpr{nrow(NYTimes)} labeled headlines from the 
 New York Times.\index{Text Data!New York Times}
@@ -499,6 +500,7 @@ text corresponds to a short description of the bill.
 
 There are other packages which contain processed data, such as word
 counts. For example, the 
-\texttt{textir}\index{R Libraries!textir} package contains phrase counts
+\texttt{textir}\index{R Libraries!textir@\texttt{textir}} package 
+contains phrase counts
 for a set of restaurant reviews, with ratings, and phrase counts and
 ideology scores for members of the $109$th United States Congress.
