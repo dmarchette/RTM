@@ -1,5 +1,8 @@
 \section{Unsupervised (Clustering)}
-Unsupervised machine learning, or clustering, is performed on
+Unsupervised machine learning,
+or 
+clustering,\index{Clustering|(}
+is performed on
 data to determine the natural groups within the data. 
 Of course, in order to decide how many groups there are, and which
 observations go in which group, we have to decide what we mean by ``group''.
@@ -64,7 +67,9 @@ concepts can lead to very different definitions of ``group'' or cluster,
 and can lead to very different cluster structures.
 
 \subsection{Hierarchical clustering on the distance matrix}
-Hierarchical (agglomerative) clustering starts with one cluster per point,
+Hierarchical\index{Clustering!Hierarchical|(}
+(agglomerative) clustering\index{Clustering!Agglomerative|(}
+starts with one cluster per point,
 finds the two closest groups and merges them, and repeats until
 ultimately every point is in a single group. 
 In this section we will assume that the document set is small enough that
@@ -82,10 +87,12 @@ of distance between groups is:
 \begin{equation}\label{eqn:singlelinkage}
 d(g_1,g_2) = \min\limits_{x\in g_1, y\in g_2}  d(x,y),
 \end{equation}
-(which is called ``single linkage'') then the spirals in Figure
+(which is called ``single linkage'')\index{Clustering!Agglomerative!Single Linkage}
+then the spirals in Figure
 \ref{fig:2clusts} will be discovered as the two penultimate groups
 (at least if $d$ is Euclidean distance).
-Other methods such as ``complete linkage'', where the $\min$ 
+Other methods such as ``complete linkage'',\index{Clustering!Agglomerative!Complete Linkage}
+where the $\min$ 
 in Equation (\ref{eqn:singlelinkage}) is replaced
 by $\max$, or where the distance is the distance between the centroids
 of the groups,
@@ -94,12 +101,14 @@ or various other distances will result in other definitions of groups
 cluster structure also depends on the definition of $d$, which is usually
 either a distance (metric) or a dissimilarity (does not require the triangle
 inequality to hold).
+\index{Clustering!Agglomerative|)}
 
 %We have seen hierarchical clustering before, for example in Figures
 %\ref{fig:qfmodelAIC1heat},
 %\ref{fig:qfmodel1hclust} and
 %\ref{fig:shakespeareD4hclust}. 
-Hierarchical clustering requires
+Thus, hierarchical clustering
+requires
 two inputs: the inter-point distance matrix and the method of 
 comparing groups. Note that while we will continue to refer to the 
 former as a ``distance'', all we really require is that it be a 
@@ -113,7 +122,8 @@ Usually one assumes that $d(x,y)=0$ if and only if $x=y$, but this
 will often not be the case in document analysis, particularly when
 one is dealing with very small documents such as paper titles or tweets.
 
-Let's consider the Shakespeare works. The data will consist of the 
+Let's consider the Shakespeare works.\index{Text Data!Shakespeare|(}
+The data will consist of the 
 word-frequency for each word in the document. We will see more sophisticated
 methods in the next few chapters, but this will do for now.
 
@@ -172,8 +182,10 @@ DS <- dissimilarity(dtmS.TfIdf,method='Soergel')
 DW <- dissimilarity(dtmS.TfIdf,method='Whittaker')
 @
 
-The Fowlkes-Mallows index (\cite{fowlkes:1983})
+The Fowlkes-Mallows index\index{Fowlkes-Mallows Index}
+(\cite{fowlkes:1983})
 can be used to assess whether two clusterings are similar.
+\index{Clustering!Assessment}
 Suppose two clusterings are performed on $n$ observations, clustering
 the observations into $k$ clusters. Form the matrix $(m_{ij})$ to
 contain the table of the clusterings: $m_{ij}$ is the number of objects
@@ -205,6 +217,8 @@ Bk_plot(h1,h2)
 \caption{\label{fig:BHCS}
 Comparison of the Complete Linkage and Single Linkage clustering method
 under the Bhatacharya dissimilarity.
+\index{Clustering!Agglomerative!Complete Linkage}
+\index{Clustering!Agglomerative!Single Linkage}
 }
 \end{figure}
 
@@ -270,6 +284,7 @@ Bk_plot(hEc,hMc,main="Euclidean vs Manhatten",ylab=expression(B[k]))
 \caption{\label{fig:BkSeveral2}
 Comparison of several dissimilarities using the complete linkage
 method for clustering.
+\index{Clustering!Agglomerative!Complete Linkage}
 }
 \end{figure}
 
@@ -309,6 +324,8 @@ Comparison of four dissimilarities using the complete linkage
 method for clustering.
 }
 \end{figure}
+\index{Text Data!Shakespeare|)}
+\index{Clustering!Hierarchical|)}
 
 \subsection{Spherical K-Means}
 <<shakeskmeans,echo=TRUE,cache=TRUE,dependson='shakespeareTM'>>=
@@ -322,7 +339,10 @@ titles[clust$cluster==2]
 titles[clust$cluster==3]
 titles[clust$cluster==4]
 @
+\index{Clustering|)}
+
 \section{Classification}
+\index{Classification|(}
 The classification problem is as follows: given data $(X,Y)$,
 $X=\{x_1,\ldots,x_n\}\in \mathscr{X}^n$, $Y=\{y_1,\ldots,y_n\}\in \mathscr{Y}^n$,
 referred to as the {\it training data}, where $X$ represents objects
@@ -335,20 +355,24 @@ $P(g(X) != Y)$ be as small as possible. Sometimes one trades-off the different t
 errors: missing a roadside bomb may cost more than a false alarm,
 however too many false alarms may mean the system will be turned off or ignored.
 
-The {\bf Bayes Error} is the minimum of the criterion, and a {\bf Bayes Classifier}
+The {\bf Bayes Error}\index{Bayes!Error} 
+is the minimum of the criterion, and a 
+{\bf Bayes Classifier}\index{Bayes!Classifier}\index{Classifier!Bayes Classifier}
 is one that obtains the optimum:
 \begin{equation}\label{eqn:bayesclassifier}
 g_{Bayes} = \arg\min\limits_{g} P(g(X)!=Y).
 \end{equation}
 
-Many classifiers are (asymptotically) Bayes optimal. For example, the $k$-nearest
+Many classifiers are (asymptotically) Bayes optimal.\index{Bayes!Optimal}
+For example, the $k$-nearest\index{Classifier!$k$-Nearest Neighbor}
 neighbor classifer, assuming $k$ increases appropriately in $n$, is one such.
 See \cite{devroye:1996,hastie:2011}. One will sometimes refer to these as
 {\it universal} or {\it consistent} classifiers.
 
 Given any choice of classifier (or collection of classifiers) one has the 
 problem of model selection. In the case of a $k$-nearest neighbor classifier,
-the parameter $k$ must be chosen. Also, $n$ is very large, one may wish to select
+the parameter $k$ must be chosen. Also, 
+when $n$ is very large one may wish to select
 a smaller set of ``prototype'' vectors to use with the classifier. 
 
 \begin{figure}
@@ -368,7 +392,8 @@ segments(z[83,1],z[83,2],-1,2,lty=2)
 text(-3,2,"Model Space")
 @
 \caption{\label{fig:modelfig}
-Stylized picture of the model selection problem. The space of all models
+Stylized picture of the model selection\index{Model Selection}
+problem. The space of all models
 under consideration is indicated by the ellipse, with the true function $f$ (almost
 certainly) falling outside this set of models. Within the model space is the 
 model which is closest to the true function (indicated by the $\widetilde{f}$) and
@@ -379,21 +404,27 @@ Consider the problem of selecting a classifier from some family of models
 for a given set of data.
 The problem of model selection and model fitting is indicated in Figure
 \ref{fig:modelfig} (see \cite{devroye:1996,hastie:2011} for more information).
-No matter what assumptions one makes about the problem, it is almost certain that
-the true classifier is not in the model space, and whether it is or not, the best
-model within the space (the one ``closest'' to the true model in the appropriate
-sense, for example, Bayes error rate) is not the one that is estimated on a given
-training set. So there are two errors, that from the mismatch of the model with the
+No matter what assumptions one makes about the problem, it is 
+almost certain that
+the true classifier is not in the 
+model space, and whether it is or not, the best
+model within the space (the one ``closest'' to the 
+true model in the appropriate
+sense, for example, Bayes error rate) is not the one that is 
+estimated on a given
+training set. So there are two errors, that from the 
+mismatch of the model with the
 truth, and that from the estimation error. In general we 
 can reduce one of these at the expense
 of the other.
 
 One might be tempted to say that by selecting a nonparametric algorithm 
 or consistent (universal) classifier
-(k-nearest
+($k$-nearest\index{Classifier!$k$-Nearest Neighbor}
 neighbors, neural networks, random forests or some other fancy classifier) one
-can eliminate the first error altogether. After all, these classifiers can attain
-Bayes error, and thus contain the true model, right?
+can eliminate the first error altogether. 
+After all, these classifiers can attain
+Bayes error,\index{Bayes!Error} and thus contain the true model, right?
 
 Well, no. The statement that a classifier is a universal classifier
 is an asymptotic statement. For any finite set of data, any given classifier can only
@@ -493,7 +524,6 @@ classes.
 %
 %%inspect(tdm[340:345,1:10])
 %
-
 
 \subsection{Classifiers}
 As noted above, there are many classifiers available, and pretty much anything
@@ -728,7 +758,10 @@ important words.
 \subsection{Discriminating and descriptive words}
 
 \subsection{Combining Clustering and Classification}
+\index{Clustering|(}
+\index{Clustering|)}
+\index{Classification|)}
 \section{Iterative Denoising}
 \cite{priebe:2003}
 \section{Fusion: Two Corpora}
-\index{fusion}
+\index{Fusion}
