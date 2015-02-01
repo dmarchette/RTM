@@ -65,10 +65,17 @@ For a reasonable sized document set, consider the subject
 arqfin.date <- Sys.time()
 x <- oaih_list_records(baseurl,set="q-fin")
 arXivQFin <- oaih_transform(x[,"metadata"])
-## If the above is run, we are changing the qfin
-## data, so we need to ensure that it is reloaded.
+@
+%% If the above is run, we are changing the qfin
+%% data, so we need to ensure that it is reloaded.
+%% If you want to ensure that the new data is used
+%% you must delete the file Data/arqfin.RData first.
+%% If you do this you MUST delete any files in SupportData
+%% starting with qfin in order to ensure that the new
+%% data is used throughout.
+<<qfin2.1,cache=TRUE,echo=FALSE>>=
 if(file.exists('Data/arqfin.RData'))
-   unlink('Data/arqfin.RData')
+   load('Data/arqfin.RData')
 @
 
 There are \Sexpr{nrow(arXivQFin)} documents (as 
@@ -422,6 +429,69 @@ an act from one of the plays, with each play numbered consecutively
 }
 \end{figure}
 \index{Text Data!Shakespeare}
+\subsection{Books and Parallel Corpora}
+There are a number of resources for books on the web. We have seen
+some above. Parallel corpora are corpora in multiple languages. These
+are annotated (usually at the sentence level) so that the translations
+can be aligned. An excellent resource for these is the open parallel
+corpus at
+\url{http://opus.lingfil.uu.se/} (\cite{tiedemann:2012}. We have downloaded a set of these
+documents as indicated in Table \ref{table:enbooks}.
+<<enbooks,echo=FALSE,results='hide',cache=TRUE>>=
+load("Data/enBooks.RData")
+x <- names(enBooks)
+x <- gsub("Charles_Pickwick","Charles-Pickwick",x)
+x <- gsub("Niccolo_Principe","Niccolo-Principe",x)
+authors <- unlist(lapply(strsplit(x,split='-'),'[',1))
+authors <- sub("_",", ",authors)
+authors <- gsub("_"," ",authors)
+authors <- gsub("Bronte","Br\\\\\"{o}nte",authors)
+authors <- gsub("Emile","\\\\\'{E}mile",authors)
+authors <- unlist(lapply(strsplit(authors,split=", "),
+    function(x) paste(rev(x),collapse=" ")))
+authors[duplicated(authors)] <- ""
+authors[grep("Fournier Alain",authors)] <- "Alain-Fournier"
+titles <- unlist(lapply(strsplit(x,split='-'),'[',2))
+titles <- gsub("_"," ",titles)
+z <- cbind(Author=authors,Title=titles)
+@
+
+\begin{table}
+\caption{\label{table:enbooks}
+Books in English obtained from the open parallel corpus.
+}
+<<enbookstable,echo=FALSE,results='asis'>>=
+kable(z,format='latex')
+@
+\end{table}
+
+In addition, we obtained the parallel texts in English in French,
+indicated in Table \ref{table:parallelenfr}.
+<<parallelenfr,echo=FALSE,results='hide',cache=TRUE>>=
+load("Data/parallelEnFr.RData")
+x <- names(English)
+authors <- unlist(lapply(strsplit(x,split='-'),'[',1))
+authors <- sub("_",", ",authors)
+authors <- gsub("_"," ",authors)
+authors <- gsub("Bronte","Br\\\\\"{o}nte",authors)
+authors <- unlist(lapply(strsplit(authors,split=", "),
+    function(x) paste(rev(x),collapse=" ")))
+authors[duplicated(authors)] <- ""
+authors[grep("Fournier Alain",authors)] <- "Alain-Fournier"
+authors <- gsub("Emile","\\\\\'{E}mile",authors)
+titles <- unlist(lapply(strsplit(x,split='-'),'[',2))
+titles <- gsub("_"," ",titles)
+z <- cbind(Author=authors,Title=titles)
+@
+
+\begin{table}
+\caption{\label{table:parallelenfr}
+Books in English and French obtained from the open parallel corpus.
+}
+<<enfrbookstable,echo=FALSE,results='asis'>>=
+kable(z,format='latex')
+@
+\end{table}
 
 \section{Data in R Packages}
 Several R packages have text data. This section is by no means comprehensive,
