@@ -434,7 +434,7 @@ There are a number of resources for books on the web. We have seen
 some above. Parallel corpora are corpora in multiple languages. These
 are annotated (usually at the sentence level) so that the translations
 can be aligned. An excellent resource for these is the open parallel
-corpus at
+corpus at\index{Text Data!English books}
 \url{http://opus.lingfil.uu.se/} (\cite{tiedemann:2012}. We have downloaded a set of these
 documents as indicated in Table \ref{table:enbooks}.
 <<enbooks,echo=FALSE,results='hide',cache=TRUE>>=
@@ -465,8 +465,9 @@ kable(z,format='latex')
 @
 \end{table}
 
-In addition, we obtained the parallel texts in English in French,
-indicated in Table \ref{table:parallelenfr}.
+In addition, we obtained the parallel texts in English in 
+French,\index{Text Data!French books}
+indicated in Table \ref{table:parallelenfr}.\index{Text Data!Parallel corpora}
 <<parallelenfr,echo=FALSE,results='hide',cache=TRUE>>=
 load("Data/parallelEnFr.RData")
 x <- names(English)
