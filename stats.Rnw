@@ -1,16 +1,14 @@
 \chapter{Latent Semantic Analysis}
 \section{Latent Semantic Indexing}
+\index{Latent Semantic Indexing|(}
 
-<<lsipackages,echo=FALSE,results='hide'>>=
-library(tm)
-library(topicmodels)
-@
-
-Latent semantic indexing (LSI) is a way of reducing the dimensionality
+Latent semantic indexing (LSI) is a way of reducing the 
+dimensionality\index{dimensionality reduction}
 of the term document matrix by embedding it in a lower dimensional
 space. The method simultaneously produces an embedding of both the
 documents and the terms, in a way that we will make explicit below.
 
+\index{Text Data!Quantitative Finance|(}
 For illustration purposes, we will consider a subset of the Quantitative
 Finances data set: those documents with a primary category of either
 ``Portfolio Management'' or ``Risk Management''. An obvious inference task
@@ -51,7 +49,10 @@ dtmQF.TfIdf <- removeSparseTerms(dtmQF.TfIdf, 0.99)
 dim(dtmQF.TfIdf)
 @
 
-The basic tool of LSI is the singular value decomposition from linear algebra.
+The basic tool of LSI is the 
+singular value decomposition\index{singular value decomposition}
+\index{svd|see {singular value decomposition}}
+from linear algebra.
 Write $X_{n,m}$ for a matrix $X$ with $n$ rows and $m$ columns.
 Given a real valued matrix\footnote{There is a version for complex valued matrices
 as well.}
@@ -206,7 +207,9 @@ The usual procedure is to find ``the elbow in the curve'' and use that for the
 dimension, however, this is not a very useful suggestion without a resonable definition
 of ``elbow''. We could ``eye-ball'' the curve and say there's an elbow around $d=50$
 (or $d=10$ or $d=100$ or pretty much anywhere). Instead, we could try the
-method of \cite{zhu:2006}, which uses a profile likelihood to pick the embedding dimension.
+method of \cite{zhu:2006}, which uses a 
+profile likelihood\index{dimensionality reduction!profile likelihood}
+to pick the embedding dimension.
 
 <<profileLikelihood,tidy=FALSE>>=
 profileLikelihood <- function(scree)
@@ -322,7 +325,9 @@ of the information contained in the data (only that which is relevant to the
 inference) and so the ``correct'' embedding for a particular task is likely
 to be less than that found by the profile likelhood method.
 
+\index{Text Data!Quantitative Finance|)}
 
+\index{Latent Semantic Indexing|)}
 \section{Embedding}
 
 An alternate approach to the singular value decomposition on the term document matrix, is to
@@ -595,11 +600,10 @@ essential for reproducability.
 
 \begin{figure}
 \centering
-<<qfinTM1fig,echo=FALSE,cache=TRUE,results='hide',dependson='qfinTM'>>=
+<<qfinTM1fig,echo=FALSE,cache=TRUE,results='hide',dependson=c('topicsTM','qfinTM')>>=
 color.names <- c("black","red")
 hmTM <- heatmap(posterior(model10)$topics,
         labRow=NA,
-        #labCol=terms(model10,1),
         labCol=apply(terms(model10,2),2,paste,collapse='\n'),
         col=gray((255:0)/255),
         RowSideColors=color.names[qf.colors],
@@ -827,7 +831,10 @@ to think that the relevant information for classifying the $2$ class
 Quantitative Finance data can be represented in somewhere between $9$ and $14$
 dimensions. We can use a similar approach to determine the number of topics.
 Alternatively, we can use information theory --
-the Akaike Information Criterion (AIC) -- to determine the proper number
+the 
+Akaike Information Criterion\index{Akaike Information Criterion}
+(AIC)\index{AIC|see {Akaike Information Criterion}}
+-- to determine the proper number
 of topics.\footnote{Code adapted from a post by Noam Ross,
 \url{http://www.noamross.net/blog/2014/8/22/topicmodeling.html}}
 First we generate $k$-topic models for $k\in[2,50]$.
@@ -859,11 +866,11 @@ if(file.exists("SupportData/qfinTM2_models.RData")){
 
 Then we compute the AIC for these (see Figure \ref{fig:qftmAIC}). 
 The point at which the AIC
-is maximal ($k=$\Sexpr{ks[which.max(AIC)]}) is the ``best''
+is maximal is the ``best''
 choice for topics.
 \index{R Libraries!Rmpfr@\texttt{Rmpfr}}
 
-<<qfinTM3,cache=TRUE,tidy=FALSE,dependson='qfinTM2'>>=
+<<qfinTM3,cache=TRUE,tidy=FALSE>>=
 library(Rmpfr)
 
 harmonicMean <- function(logLikelihoods, precision = 2000L) {
@@ -903,7 +910,7 @@ So, let's assume that $k=$\Sexpr{ks[which.max(AIC)]} is the ``right''
 answer, and fit a model. We'll increase the burn in and iterations
 to increase the likelihood that the model has converged.
 
-<<qfinModel1,cache=TRUE,tidy=FALSE,dependson=c('topicsTM','qfinTM2')>>=
+<<qfinModel1,cache=TRUE,tidy=FALSE,dependson='topicsTM'>>=
 set.seed(12345)
 modelTM <- LDA(dtmQF.Tf, k=ks[which.max(AIC)], method = "Gibbs",
     control = list(burnin = 1000, iter = 5000)) 
@@ -915,7 +922,7 @@ to running any of these models, and one might question whether this
 is really necessary. How much can it matter? Let's find out, by fitting
 another model with the same parameters and a different seed.
 
-<<qfinModel2,cache=TRUE,tidy=FALSE,dependson=c('topicsTM','qfinTM2')>>=
+<<qfinModel2,cache=TRUE,tidy=FALSE,dependson='topicsTM'>>=
 set.seed(21545)
 modelTM2 <- LDA(dtmQF.Tf, k=ks[which.max(AIC)], method = "Gibbs", 
     control = list(burnin = 1000, iter = 5000)) 
