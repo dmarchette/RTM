@@ -20,8 +20,9 @@ for describing these two document sets, and which terms are more
 useful for discriminating between them. Someone (like ourselves) who
 is ignorant of economics might ask whether these are actually two 
 distinct fields or simply two different terms for the same thing.
+\index{R Libraries!tm@\texttt{tm}}
 
-<<lsiTM,cache=TRUE,tidy=FALSE,dependson='qfin2'>>=
+<<lsiTM,cache=TRUE,tidy=FALSE>>=
 library(tm)
 
 load('Data/arqfin.RData')
@@ -43,9 +44,9 @@ dtm.control <- list(
   weighting = weightTfIdf
 )
 
-corp <- Corpus(VectorSource(docs))
+qfcorp <- Corpus(VectorSource(docs))
 
-dtmQF.TfIdf <- DocumentTermMatrix(corp, control = dtm.control)
+dtmQF.TfIdf <- DocumentTermMatrix(qfcorp, control = dtm.control)
 dtmQF.TfIdf <- removeSparseTerms(dtmQF.TfIdf, 0.99)
 dim(dtmQF.TfIdf)
 @
@@ -128,7 +129,7 @@ corpus is well modeled with two parameters.
 Let's investigate empirically the statement that the dot product of the word vector with the
 document vector is related to the probability that the word is in the document.
 
-<<lsiworddists,cache=TRUE,tidy=FALSE,dependson='lsi1'>>=
+<<lsiworddists,cache=TRUE,tidy=FALSE,dependson=c('lsi1','lsiTM')>>=
 docv <- scale(z$u[,1:100],center=FALSE,scale=sqrt(1/z$d[1:100]))
 wordv <- scale(z$v[,1:100],center=FALSE,scale=sqrt(1/z$d[1:100]))
 S <- docv %*% t(wordv)
@@ -143,7 +144,7 @@ dtm.control <- list(
   weighting = weightTf
 )
 
-dtmQF.Tf <- DocumentTermMatrix(corp, control = dtm.control)
+dtmQF.Tf <- DocumentTermMatrix(qfcorp, control = dtm.control)
 dim(dtmQF.Tf)
 M <- as.matrix(dtmQF.Tf)
 sIN <- unlist(sapply(1:nrow(dtmQF.TfIdf),
@@ -258,6 +259,7 @@ performance. We illustrate this below, with the caveat that even though we
 are using crossvalidation to estimate classifier performance, we are not
 crossvalidating the choice of dimension. However, this is unlikely to make
 much difference from a practical standpoint.
+\index{R Libraries!class@\texttt{class}}
 
 <<knndimchoice,cache=TRUE,tidy=FALSE>>=
 library(class)
@@ -396,13 +398,13 @@ Sdocuments <- aggregate(shakespeare,
    by=list(shakespeare.class),
    FUN='paste',collapse=' ')[,2]
 @
-
+\index{R Libraries!tm@\texttt{tm}}
 <<shakespeareTM,echo=-1,cache=TRUE,tidy=FALSE,dependson='shakepeareDocs'>>=
 library(tm)
 
-corp <- Corpus(VectorSource(Sdocuments))
+Scorp <- Corpus(VectorSource(Sdocuments))
 
-dtmS.Tf <- DocumentTermMatrix(corp, 
+dtmS.Tf <- DocumentTermMatrix(Scorp, 
    control = list(
      tolower = TRUE,
      removePunctuation = TRUE,
@@ -411,7 +413,7 @@ dtmS.Tf <- DocumentTermMatrix(corp,
      stemming = TRUE,
      weighting = weightTf))
 
-dtmS.TfIdf <- DocumentTermMatrix(corp, 
+dtmS.TfIdf <- DocumentTermMatrix(Scorp, 
    control = list(
      tolower = TRUE,
      removePunctuation = TRUE,
@@ -520,7 +522,9 @@ The works of Shakespeare, clustered via hierarchical clustering.
 \begin{ExerciseList}
 \Exercise Using the two class Quantitative Finance data,
 compare Euclidean distance to cosine dissimilarity. Explore other
-dissimilarity measures (the library \texttt{proxy} implements a large
+dissimilarity measures (the library 
+\texttt{proxy}\index{R Libraries!proxy@\texttt{proxy}}
+implements a large
 number).
 \Exercise Implement a two stage approach: first use the profile likelihood to find an embedding
 dimension and use the singular value decomposition to embed the data. Then compute a dissimilarity
@@ -550,7 +554,7 @@ come to the same conclusion?
 \chapter{Topic Models}
 \section{Latent Dirichlet Allocation}
 
-
+\index{R Libraries!tm@\texttt{tm}}
 <<topicsTM,cache=TRUE,tidy=FALSE,dependson='lsiTM'>>=
 library(tm)
 
@@ -565,7 +569,7 @@ dtm.control <- list(
   weighting = weightTf
 )
 
-dtmQF.Tf <- DocumentTermMatrix(corp, control = dtm.control)
+dtmQF.Tf <- DocumentTermMatrix(qfcorp, control = dtm.control)
 dtmQF.Tf <- removeSparseTerms(dtmQF.Tf, 0.99)
 dim(dtmQF.Tf)
 @
@@ -576,6 +580,7 @@ one should put some thought into how many clusters to fit, just
 as one should think about how many dimensions to choose in 
 a latent semantic indexing model. We will discuss this later,
 but for now, let's consider a $10$ topic model.
+\index{R Libraries!topicmodels@\texttt{topicmodels}}
 
 <<qfinTM,cache=TRUE,tidy=FALSE,dependson='topicsTM'>>=
 library(topicmodels)
@@ -759,6 +764,7 @@ as they illuminate, but they are popular, and with care, can provide
 some indications of what is going on. In Figures \ref{fig:TM10WC6}
 and \ref{fig:TM10WC7}
 we show the word clouds for Topics 6 and 7.
+\index{R Libraries!wordcloud@\texttt{wordcloud}}
 
 \begin{figure}
 \centering
@@ -776,6 +782,7 @@ Finance data.
 }
 \end{figure}
 
+\index{R Libraries!wordcloud@\texttt{wordcloud}}
 \begin{figure}
 \centering
 <<qfinTMWC7,echo=FALSE,results='hide',dependson=c('qfinTM','qfinTM1fig')>>=
@@ -825,7 +832,7 @@ of topics.\footnote{Code adapted from a post by Noam Ross,
 \url{http://www.noamross.net/blog/2014/8/22/topicmodeling.html}}
 First we generate $k$-topic models for $k\in[2,50]$.
 
-<<qfinTM2,cache=TRUE,tidy=FALSE,dependson='topicsTM'>>=
+<<qfinTM2,cache=FALSE,echo=c(1:5,10),tidy=FALSE,dependson='topicsTM'>>=
 
 burnin <- 1000
 iter <- 1000
@@ -833,16 +840,28 @@ keep <- 50
 ks <- seq(2, 50, by = 1)
 set.seed(12345)
 
+if(file.exists("SupportData/qfinTM2_models.RData")){
+ks <- 2
+burnin <- 1
+iter <- 1
+}
+
 models <- lapply(ks, function(k) {
         LDA(dtmQF.Tf, k, method = "Gibbs", 
             control = list(burnin = burnin, iter = iter, keep = keep))
         })
+if(file.exists("SupportData/qfinTM2_models.RData")){
+  load("SupportData/qfinTM2_models.RData")
+} else {
+   save(models,ks,burnin,iter,file="SupportData/qfinTM2_models.RData")
+}
 @
 
 Then we compute the AIC for these (see Figure \ref{fig:qftmAIC}). 
 The point at which the AIC
 is maximal ($k=$\Sexpr{ks[which.max(AIC)]}) is the ``best''
 choice for topics.
+\index{R Libraries!Rmpfr@\texttt{Rmpfr}}
 
 <<qfinTM3,cache=TRUE,tidy=FALSE,dependson='qfinTM2'>>=
 library(Rmpfr)
@@ -863,7 +882,7 @@ AIC <- unlist(lapply(models,function(model){
 
 \begin{figure}
 \centering
-<<qfinAICfig,echo=FALSE,echo=FALSE,results='hide',dependson='qfinTM3'>>=
+<<qfinAICfig,echo=FALSE,results='hide',dependson='qfinTM3'>>=
 plot(ks,AIC,type='l',xlab="# Topics",ylab='AIC')
 abline(v=ks[which.max(AIC)],lty=2)
 @
@@ -880,7 +899,7 @@ to be pretty much flat. Recall that our experiments with $k$-nearest
 neighbors classifiers gave us an answer of somewhere between
 $9$ and $14$. The agreement is pretty amazing, if you think about it.
 
-So, let's assume that $k=\Sexpr{ks[which.max(AIC)]}$ is the ``right''
+So, let's assume that $k=$\Sexpr{ks[which.max(AIC)]} is the ``right''
 answer, and fit a model. We'll increase the burn in and iterations
 to increase the likelihood that the model has converged.
 

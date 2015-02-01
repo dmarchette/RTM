@@ -328,6 +328,7 @@ method for clustering.
 \index{Clustering!Hierarchical|)}
 
 \subsection{Spherical K-Means}
+\index{R Libraries!skmeans@\texttt{skmeans}}
 <<shakeskmeans,echo=TRUE,cache=TRUE,dependson='shakespeareTM'>>=
 library(skmeans)
 set.seed(23646)
@@ -460,6 +461,8 @@ than words). As we will see in Chapter \ref{chapt:nlp}, the bag-of-words model
 is not the only one to consider, one can extract grammar information from the
 text and utilize this in a classifier. The choice of features to extract can
 be critical to the ultimate performance of a classifier.
+\index{R Libraries!tm@\texttt{tm}}
+\index{R Libraries!class@\texttt{class}}
 
 <<characterclassifier,tidy=FALSE,echo=TRUE,cache=TRUE,dependson='lsiTM'>>=
 library(tm)
@@ -543,6 +546,7 @@ several options in mind when approaching a classification task.
 One nice feature of the random forest classifier is that 
 it can provide an indication of the importance of the individual features
 for the classification task.
+\index{R Libraries!tm@\texttt{tm}}
 
 <<qf4rf,cache=TRUE,tidy=FALSE,echo=-c(1:2)>>=
 library(tm)
@@ -576,6 +580,7 @@ dtmQF <- cbind(dtmTitles,dtmAbstracts)
 
 Let's fit a random forest to the Quantitative Finance
 data. 
+\index{R Libraries!randomForest@\texttt{randomForest}}
 
 <<qfrf,cache=TRUE,tidy=FALSE,dependson='gf4rf'>>=
 library(randomForest)
@@ -725,6 +730,7 @@ titlebest[[9]]
 options(width=w$width)
 @
 
+\index{R Libraries!igraph@\texttt{igraph}}
 <<qfrftitlewords2,echo=TRUE,tidy=FALSE>>=
 library(igraph)
 W <- matrix(0,nrow=9,ncol=9)

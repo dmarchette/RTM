@@ -21,6 +21,7 @@ To count the words in a document, we can use the \texttt{table} command
 To illustrate this, we use the \texttt{crude} dataset from the tm package.
 We split the documents into words and count them. First, we obtain the
 lexicon:
+\index{R Libraries!tm@\texttt{tm}}
 
 <<lex.crude,cache=TRUE,tidy=FALSE>>=
 library(tm)
@@ -161,6 +162,7 @@ We can now see which algorithm is most efficient for
 various corpus sizes.
 The benchmark package lets us time the three methods for various
 corpus sizes, and compare their performance.
+\index{R Libraries!rbenchmark@\texttt{rbenchmark}}
 
 <<vect2,cache=TRUE,tidy=FALSE,dependson='jssdata'>>=
 library(rbenchmark)
