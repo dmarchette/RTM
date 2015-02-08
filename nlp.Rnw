@@ -7,6 +7,36 @@
 \section{Keyword Extraction}
 \section{Language identification}
 \section{Translation}
+
+\index{R Libraries!tm@\texttt{tm}}
+<<wordlevelassoc,echo=TRUE,results='as-is',cache=TRUE>>=
+library(tm)
+load("Data/parallelEnFr.RData") 
+
+edocs <- unlist(English)
+fdocs <- unlist(French)
+
+docs <- paste(edocs,fdocs)
+dtm <- DocumentTermMatrix(Corpus(VectorSource(docs)),
+               control=list(weighting=weightTf,
+                            removePunctuation=TRUE,
+                            removeNumbers=TRUE,
+                            wordLengths=c(1,Inf)))
+
+
+findAssocs(dtm,
+           terms=c("vraiment",
+                   "bonjour",
+                   "est",
+                   "rameur",
+                   "laugh"),
+           corlimit=c(0.15,
+                      0.20,
+                      0.25,
+                      0.6,
+                      0.5))
+@
+
 \subsection{Fusion: Implicit Translation}
 \section{Author ID}
 
