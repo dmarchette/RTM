@@ -1,2 +1,14 @@
-preface stuff
+
+
+We used the 
+\texttt{checkpoint}\index{R Libraries!checkpoint@\texttt{checkpoint}}
+package to obtain a copy of the packages we used as of 02/09/2015.
+In the event that some of these packages change in ways that breaks
+the code we describe in this book, you can obtain the same versions
+we use with this package.
+
+The packages we use are:
+<<packageversions,echo=FALSE,results='asis'>>=
+toLatex(sessionInfo())
+@
 
