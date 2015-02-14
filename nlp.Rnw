@@ -9,7 +9,7 @@
 \section{Translation}
 
 \index{R Libraries!tm@\texttt{tm}}
-<<wordlevelassoc,echo=TRUE,results='as-is',cache=TRUE>>=
+<<wordlevelassoc,echo=TRUE,results='asis',cache=TRUE>>=
 library(tm)
 load("Data/parallelEnFr.RData") 
 
