@@ -1,3 +1,7 @@
+lpath <- list.dirs("~/.checkpoint/2015-02-09/lib",
+                   recursive=TRUE,full.names=TRUE)[3]
+
+.libPaths(lpath)
 library(tm)
 library(topicmodels)
 library(OAIHarvester)
