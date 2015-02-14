@@ -1,7 +1,9 @@
 lpath <- list.dirs("~/.checkpoint/2015-02-09/lib",
-                   recursive=TRUE,full.names=TRUE)[3]
+                   recursive=TRUE,full.names=TRUE)
+lpath <- lpath[grep("/3\\.",lpath)[1]]
 
 .libPaths(lpath)
+Sys.setlocale("LC_ALL",'en_US.UTF-8')
 library(tm)
 library(topicmodels)
 library(OAIHarvester)
