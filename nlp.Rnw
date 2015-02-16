@@ -9,7 +9,7 @@
 \section{Translation}
 
 \index{R Libraries!tm@\texttt{tm}}
-<<wordlevelassoc,echo=TRUE,results='asis',cache=TRUE>>=
+<<wordlevelassoc,eval=FALSE,tidy=FALSE>>=
 library(tm)
 load("Data/parallelEnFr.RData") 
 
@@ -23,8 +23,7 @@ dtm <- DocumentTermMatrix(Corpus(VectorSource(docs)),
                             removeNumbers=TRUE,
                             wordLengths=c(1,Inf)))
 
-
-findAssocs(dtm,
+efassocs <- findAssocs(dtm,
            terms=c("vraiment",
                    "bonjour",
                    "est",
@@ -35,6 +34,10 @@ findAssocs(dtm,
                       0.25,
                       0.6,
                       0.5))
+@
+<<wordlevelassoc2,echo=FALSE>>=
+load("SupportData/efassocs1.RData")
+efassocs
 @
 
 \subsection{Fusion: Implicit Translation}
