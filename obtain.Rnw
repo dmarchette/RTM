@@ -47,7 +47,7 @@ package to obtain a document set from arXiv.
 First, we get a list of the available data sets.
 \index{R Libraries!XML@\texttt{XML}}
 
-<<qfin,cache=TRUE,tidy=FALSE>>=
+<<qfin,eval=FALSE,tidy=FALSE>>=
 library(OAIHarvester)
 library(XML)
 baseurl <- "http://export.arxiv.org/oai2"
@@ -61,7 +61,7 @@ For a reasonable sized document set, consider the subject
 \index{Text Data!Quantitative Finance}
 \index{Text Data!arXiv}
 
-<<qfin2,cache=TRUE,echo=2:3,tidy=FALSE>>=
+<<qfin2,cache=TRUE,eval=FALSE,echo=2:3,tidy=FALSE>>=
 arqfin.date <- Sys.time()
 x <- oaih_list_records(baseurl,set="q-fin")
 arXivQFin <- oaih_transform(x[,"metadata"])
@@ -73,8 +73,8 @@ arXivQFin <- oaih_transform(x[,"metadata"])
 %% If you do this you MUST delete any files in SupportData
 %% starting with qfin in order to ensure that the new
 %% data is used throughout.
-<<qfin2.1,cache=TRUE,echo=FALSE>>=
-if(file.exists('Data/arqfin.RData'))
+
+<<qfin2.1,echo=FALSE>>=
    load('Data/arqfin.RData')
 @
 
@@ -89,7 +89,7 @@ w <- options("width")
 options(width=60)
 @
 
-<<qfin3,cache=TRUE,tidy=FALSE>>=
+<<qfin3,tidy=FALSE>>=
 colnames(arXivQFin)
 @
 \index{Text Data!Quantitative Finance}
@@ -98,7 +98,7 @@ Now, consider just those articles with the phrase
 ``Quantitative Finance'' in their
 subjects:
 
-<<qfin4,cache=TRUE,tidy=FALSE,echo=1:5>>=
+<<qfin4,eval=FALSE,tidy=FALSE,echo=1:5>>=
 a <- unlist(lapply(arXivQFin[,"subject"],function(x) 
                            length(grep("Quantitative Finance",x))))
 b <- which(a==1)
@@ -107,13 +107,10 @@ qf.primary <- unlist(lapply(qf[,"subject"],function(x)
                           x[grep("Quantitative Finance",x)]))
 qf.primary <- gsub("Quantitative Finance - ","",
                    qf.primary)
-if(file.exists('Data/arqfin.RData')){
-load('Data/arqfin.RData')
-} else {
 save(arXivQFin,arqfin.date,qf,qf.primary,file='Data/arqfin.RData')
 }
 @
-<<qfin4table,cache=TRUE,tidy=FALSE,echo=1:5>>=
+<<qfin4table,tidy=FALSE,echo=1:5>>=
 table(qf.primary)
 @
 \index{Text Data!Quantitative Finance}
@@ -158,7 +155,7 @@ remove_HTML_markup <- function(s)
 }
 @
 
-<<jssdata,cache=TRUE,echo=1,tidy=FALSE>>=
+<<jssdata,eval=FALSE,echo=1,tidy=FALSE>>=
 JSS_papers <- getData()
 
 if(file.exists("Data/JSS_papers.RData")){
@@ -169,6 +166,10 @@ save(JSS_papers,jss.date,file="Data/JSS_papers.RData")
 }
 @
 
+<<jssdata.1,echo=FALSE>>=
+   load('Data/JSS_papers.RData')
+@
+
 
 \section{Searching PubMed}
 There are many ways to get data from PubMed. One method uses
@@ -176,12 +177,13 @@ the \texttt{RISmed}\index{R Libraries!RISmed@\texttt{RISmed}}
 package.\index{Data Sources!Pubmed}
 \index{Text Data!Ebola}
 
-<<pmEbola,echo=1:3,tidy=FALSE,cache=TRUE>>=
+<<pmEbola,echo=1:3,eval=FALSE,tidy=FALSE,cache=TRUE>>=
 library(RISmed)
 ebolaSummary <- EUtilsSummary('ebola hemorrhagic',
    type='esearch',db='pubmed')
 ebolaDocs <- EUtilsGet(ebolaSummary,
    type='efetch',db='pubmed')
+
 if(file.exists("Data/ebola.RData")){
 load("Data/ebola.RData")
 } else {
@@ -189,11 +191,16 @@ ebola.date <- Sys.time()
 save(ebolaDocs,ebolaSummary,ebola.date,file="Data/ebola.RData")
 }
 @
+<<ebola.1,echo=FALSE>>=
+   load('Data/ebola.RData')
+@
+
 \index{Text Data!Ebola}
-<<pmEbola2,echo=c(1:6),tidy=FALSE>>=
+<<pmEbola2,echo=TRUE,tidy=FALSE>>=
 Author(ebolaDocs)[[1]]
 ArticleTitle(ebolaDocs)[[1]]
 @
+
 \begin{figure}
 <<pmEbolaFig,echo=FALSE,fig.width=4,fig.height=4,results='hide'>>=
 y <- Year(ebolaDocs)
@@ -222,7 +229,7 @@ number of queries, and schedule larger requests for weekends
 or nights (Eastern time).
 \index{Data Sources!Pubmed}
 
-\section{RSS feed examples: Google news and others}
+\section{RSS feed examples: Google News and Others}
 
 Obtaining data from an RSS feed is simple using the \texttt{XML} package.
 \index{R Libraries!XML@\texttt{XML}}
@@ -232,7 +239,7 @@ For example, consider the Ars Mathematica blog,
 \url{http://www.arsmathematica.net/}.
 We can download the data from this feed using \texttt{xmlParse}:
 
-<<ars,cache=TRUE,echo=1:4,tidy=FALSE>>=
+<<ars,echo=1:4,tidy=FALSE,eval=FALSE>>=
   doc <- xmlParse("http://www.arsmathematica.net/?feed=rss2")
   titles <- xpathSApply(xmlRoot(doc),"//item/title",
                         xmlValue)
@@ -240,6 +247,7 @@ We can download the data from this feed using \texttt{xmlParse}:
                         xmlValue)
   contents <- xpathSApply(xmlRoot(doc),"//item/content:encoded",
                         xmlValue)
+
   if(file.exists('Data/arsmath.RData')){
   load('Data/arsmath.RData')
   } else {
@@ -247,6 +255,10 @@ We can download the data from this feed using \texttt{xmlParse}:
   save(doc,titles,descriptions,contents,arsmath.date,file='Data/arsmath.RData')
   }
 @
+<<ars.1,echo=FALSE>>=
+   load('Data/arsmath.RData')
+@
+
 
 <<arsout,echo=3:4,tidy=FALSE,no_pref=TRUE>>=
   w <- options("width")
@@ -266,7 +278,7 @@ how to obtain and parse data from RSS feeds such as Google News.
 \index{Data Sources!RSS}
 \index{R Libraries!plyr@\texttt{plyr}}
 
-<<googlenews,cache=TRUE,echo=1:20,tidy=FALSE>>=
+<<googlenews,echo=1:20,tidy=FALSE>>=
 library(XML)
 library(plyr)
 ## Get at most 300 articles from the US Science News section of Google
@@ -309,6 +321,10 @@ gsinews.date <- Sys.time()
 save(docs,gscinews.date,file='Data/googleSciNews.RData')
 }
 @
+<<googlenews.1,echo=FALSE>>=
+   load('Data/googleSciNews.RData')
+@
+
 \index{Text Data!Google News!Science}
 
 As with all RSS feeds, one obtains the most recent 
@@ -328,9 +344,11 @@ Here is an example using Project
 Gutenberg.\index{Data Sources!Project Gutenberg}
 First, let's get the
 index, and look through it for something interesting:
-<<gutenberg,cache=TRUE,tidy=FALSE>>=
+<<gutenberg,eval=FALSE,tidy=FALSE>>=
 download.file("http://www.gutenberg.org/dirs/GUTINDEX.ALL",
               destfile="Data/gutenberg.txt")
+@
+<<gutenberg1,tidy=FALSE>>=
 gt <- readLines("Data/gutenberg.txt")
 gsub("\\s+"," ",
 	gt[grep("Complete Works of William Shakespeare",gt)])
@@ -343,11 +361,8 @@ After a small amount of experimenting, we can determine the
 filename, and download the file.
 \index{Text Data!Shakespeare}
 
-<<shakespeare,cache=TRUE,echo=c(2,4:22),tidy=FALSE>>=
-if(!file.exists("Data/shakespeare.txt")){
-download.file("http://www.gutenberg.org/files/100/100.txt", 
-              destfile = "Data/shakespeare.txt")
-}
+<<shakespeare,eval=FALSE,echo=TRUE,tidy=FALSE>>=
+
 ## Read the data in and make a single character string
 txt <- readLines("Data/shakespeare.txt")
 dates <- grep("^1[56][[:digit:]][[:digit:]]",txt)
@@ -377,7 +392,7 @@ After the above processing, we have \Sexpr{length(shakespeare)} documents.
 Now let's assign class labels to these documents
 (each act becomes the same class as the associated play).
 
-<<dpclass,tidy=FALSE,echo=1:2>>=
+<<dpclass,tidy=FALSE,eval=FALSE,echo=1:2>>=
 a <- diff(grep("1[56][[:digit:]]+",shakespeare))
 shakespeare.class <- rep(1:length(titles),
                         times=c(a,1))
@@ -387,6 +402,11 @@ save(shakespeare,titles,dates,shakespeare.class,file="Data/shakespeare.RData")
 Some simple text processing to look at the documents:
 \index{Text Data!Shakespeare}
 
+<<shakes.1,echo=FALSE>>=
+   load('Data/shakespeare.RData')
+@
+
+\index{R Libraries!proxy@\texttt{proxy}}
 <<shakeprocess,cache=TRUE,tidy=FALSE>>=
 library(proxy)
 
@@ -437,6 +457,7 @@ can be aligned. An excellent resource for these is the open parallel
 corpus at\index{Text Data!English books}
 \url{http://opus.lingfil.uu.se/} (\cite{tiedemann:2012}. We have downloaded a set of these
 documents as indicated in Table \ref{table:enbooks}.
+
 <<enbooks,echo=FALSE,results='hide',cache=TRUE>>=
 load("Data/enBooks.RData")
 x <- names(enBooks)
